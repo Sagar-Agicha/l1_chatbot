@@ -80,11 +80,19 @@ def check_text_content(text):
             'message': "We encountered an issue processing your message. Please try again with different wording."
         }
 
-def set_stage(stage: str, from_number: str):
-    file = open("user_data.json", "r")
-    data = json.load(file)
-    data[from_number][stage] = stage
-    file.close()
+def set_stage(stage: str, from_number: str, com_name: str = '0', mo_name: str = '0', user_name: str = '0', pdf_file: str = '0', vector_file: str = '0'):
+    try:
+        file = open("user_data.json", "r")
+        data = json.load(file)
+        file.close()
+    except (FileNotFoundError, json.JSONDecodeError):
+        data = {}
+ 
+    if from_number not in data:
+        data[from_number] = {}
+   
+    data[from_number]["stage"] = stage
+ 
     file = open("user_data.json", "w")
     json.dump(data, file)
     file.close()
@@ -96,18 +104,18 @@ async def webhook(request: WebhookData):
     if user_validation['is_valid']:
             if get_stage(request.from_number) is None:
                 try:
-                    phone_number = request.from_number
+                    phone_number = request.from_number[3:]
                     cursor.execute("""
-                        SELECT user_name, mo_name 
+                        SELECT user_name, com_name, mo_name, pdf_file, vector_file
                         FROM l1_tree 
                         WHERE phone_number = ?
                     """, (phone_number,))
                     
                     result = cursor.fetchone()
                     if result:
-                        username, model_name = result
-                        set_stage("data_found", request.from_number)
-                        return {"message": f"Welcome {username}\nCan you please confirm your this {model_name} is your Model Name?"}
+                        username, com_name, mo_name, pdf_file, vector_file = result
+                        set_stage("data_found", request.from_number, com_name, mo_name, username, pdf_file, vector_file)
+                        return {"message": f"Welcome {username}\nCan you please confirm your this {com_name} {mo_name} is your Model Name?"}
                     else:
                         set_stage("no_data", request.from_number)
                         return {"message": "No user data found"}
@@ -118,14 +126,14 @@ async def webhook(request: WebhookData):
 
             elif get_stage(request.from_number) == "data_found":
                 if request.message == "Yes":
-                    set_stage("data_confirmed", request.from_number)
+                    set_stage("data_confirmed", request.from_number, com_name, mo_name, username, pdf_file, vector_file)
                     return {"message": "Thank you for confirming your model name"}
                 else:
                     set_stage("no_data", request.from_number)
                     return {"message": "Please let me know your model name"}
 
             elif get_stage(request.from_number) == "no_data":
-                set_stage("data_found", request.from_number)
+                set_stage("no_data", request.from_number)
                 return {"message": "Please let me know your model name"}
     else:
         set_stage("msg_invalid", request.from_number)
