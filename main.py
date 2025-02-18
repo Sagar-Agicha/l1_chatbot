@@ -43,10 +43,18 @@ class WebhookData(BaseModel):
     from_number: str
 
 def get_stage(from_number: str):
-    file = open("user_data.json", "r")
-    data = json.load(file)
-    file.close()
-    return data["stage"]
+    try:
+        file = open("user_data.json", "r")
+        data = json.load(file)
+        file.close()
+        
+        if from_number in data:
+            return data[from_number]["stage"]
+        else:
+            return None
+            
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
 
 def check_text_content(text):
     try:
@@ -76,7 +84,7 @@ def set_stage(stage: str, from_number: str):
 @app.post("/webhook")
 async def webhook(request: WebhookData):
     user_validation = check_text_content(request.message)
-    if user_validation.is_valid:
+    if user_validation['is_valid']:
             if get_stage(request.from_number) is None:
                 try:
                     phone_number = "+91" + request.from_number
