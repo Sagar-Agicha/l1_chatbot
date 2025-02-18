@@ -14,6 +14,7 @@ import os
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
 import openai
+import pickle
 
 app = FastAPI()
 
@@ -101,7 +102,7 @@ def check_text_content(text):
             'message': "We encountered an issue processing your message. Please try again with different wording."
         }
 
-def set_stage(stage: str, from_number: str, com_name: str = '0', mo_name: str = '0', user_name: str = '0', pdf_file: str = '0', vector_file: str = '0'):
+def set_stage(stage: str, from_number: str, com_name: str = '0', mo_name: str = '0', user_name: str = '0', pdf_file: str = '0', vector_file: str = '0', conversation_history: list = [], chunks_file: str = '0'):
     try:
         file = open("user_data.json", "r")
         data = json.load(file)
@@ -118,7 +119,9 @@ def set_stage(stage: str, from_number: str, com_name: str = '0', mo_name: str = 
     data[from_number]["user_name"] = user_name
     data[from_number]["pdf_file"] = pdf_file
     data[from_number]["vector_file"] = vector_file
- 
+    data[from_number]["conversation_history"] = conversation_history
+    data[from_number]["chunks_file"] = chunks_file
+
     file = open("user_data.json", "w")
     json.dump(data, file)
     file.close()
@@ -163,7 +166,7 @@ async def webhook(request: WebhookData):
                     if result:
                         username, com_name, mo_name, pdf_file, vector_file = result
                 
-                    if vector_file != '0':
+                    if vector_file != '0' and 2<1:
                         vector_file = os.path.join("encodings", vector_file)
  
                     else:
@@ -173,6 +176,11 @@ async def webhook(request: WebhookData):
                         all_chunks.extend(current_chunks)
                         chunks = all_chunks
                         context_encodings = rag.encode_chunks(chunks)
+
+                        # Save chunks to a file
+                        chunks_filename = f"encodings/chunks_{phone_number}.pkl"
+                        with open(chunks_filename, 'wb') as f:
+                            pickle.dump(chunks, f)
  
                         # Save encodings to a file
                         encodings_filename = f"encodings/encodings_{phone_number}.npy"
@@ -187,7 +195,7 @@ async def webhook(request: WebhookData):
                         conn.commit()
                         vector_file = encodings_filename
 
-                    set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file)
+                    set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
                     return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?"}
                 else:
                     set_stage("no_data", request.from_number)
@@ -201,8 +209,15 @@ async def webhook(request: WebhookData):
                 stage_data = get_all_data(request.from_number)
                 pdf_file = stage_data.get('pdf_file')
                 encodings_file = stage_data.get('vector_file')
-                conversation_history = stage_data.get('conversation_history')
+                chunks_file = stage_data.get('chunks_file')
+                conversation_history = stage_data.get('conversation_history', [])
                 
+                if chunks_file != '0':
+                    with open(chunks_file, 'rb') as f:
+                        chunks = pickle.load(f)
+                else:
+                    chunks = []
+
                 # Load the saved encodings
                 context_encodings = np.load(encodings_file)
                 conversation_history.append({"role": "user", "content": request.message})
