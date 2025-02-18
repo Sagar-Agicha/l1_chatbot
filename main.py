@@ -48,10 +48,23 @@ guard = Guard().use_many(
     ProfanityFree()
 )
 
-conversation_history = []
 class WebhookData(BaseModel):
     message: str
     from_number: str
+
+def get_all_data(from_number: str):
+    try:
+        file = open("user_data.json", "r")
+        data = json.load(file)
+        file.close()
+        
+        if from_number in data:
+            return data[from_number]
+        else:
+            return None
+            
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
 
 def get_stage(from_number: str):
     try:
@@ -144,26 +157,31 @@ async def webhook(request: WebhookData):
                     if result:
                         username, com_name, mo_name, pdf_file, vector_file = result
                 
-                    all_chunks = []
-                    for path in pdf_file:
-                        current_chunks = rag.get_chunks(path)
+                    if vector_file != '0':
+                        vector_file = os.path.join("encodings", vector_file)
+ 
+                    else:
+                        all_chunks = []
+                        pdf_file = os.path.join("PDFs", pdf_file)
+                        current_chunks = rag.get_chunks(pdf_file)
                         all_chunks.extend(current_chunks)
-                    chunks = all_chunks
-                    context_encodings = rag.encode_chunks(chunks)
+                        chunks = all_chunks
+                        context_encodings = rag.encode_chunks(chunks)
+ 
+                        # Save encodings to a file
+                        encodings_filename = f"encodings/encodings_{phone_number}.npy"
+                        np.save(encodings_filename, context_encodings)
+                   
+                        # Update vector_file in database
+                        cursor.execute("""
+                            UPDATE l1_tree
+                            SET vector_file = ?
+                            WHERE phone_number = ?
+                        """, (encodings_filename, phone_number))
+                        conn.commit()
+                        vector_file = encodings_filename
 
-                    # Save encodings to a file
-                    encodings_filename = f"encodings_{phone_number}.npy"
-                    np.save(encodings_filename, context_encodings)
-                    
-                    # Update vector_file in database
-                    cursor.execute("""
-                        UPDATE l1_tree
-                        SET vector_file = ?
-                        WHERE phone_number = ?
-                    """, (encodings_filename, phone_number))
-                    conn.commit()
-    
-                    set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, encodings_filename)
+                    set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file)
                     return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?"}
                 else:
                     set_stage("no_data", request.from_number)
@@ -174,7 +192,7 @@ async def webhook(request: WebhookData):
                 return {"message": "Please let me know your model name"}
 
             elif get_stage(request.from_number) == "tech_support":
-                stage_data = get_stage(request.from_number)
+                stage_data = get_all_data(request.from_number)
                 pdf_file = stage_data.get('pdf_file')
                 encodings_file = stage_data.get('vector_file')
                 

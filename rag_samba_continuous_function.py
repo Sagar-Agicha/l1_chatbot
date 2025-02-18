@@ -71,10 +71,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Encode the context chunks
 def encode_chunks(chunks):
     context_encoder = DPRContextEncoder.from_pretrained(
-        "all-MiniLM-L12-v2"
+        "sentence-transformers/all-MiniLM-L12-v2"
     ).to(device)
     context_tokenizer = DPRContextEncoderTokenizer.from_pretrained(
-        "all-MiniLM-L12-v2"
+        "sentence-transformers/all-MiniLM-L12-v2"
     )
 
     # Tokenize and encode context chunks
@@ -92,10 +92,10 @@ def encode_chunks(chunks):
 # Define the function to retrieve context
 def retrieve_context(question, chunks, context_encodings):
     question_encoder = DPRQuestionEncoder.from_pretrained(
-        "all-MiniLM-L12-v2"
+        "sentence-transformers/all-MiniLM-L12-v2"
     ).to(device)
     question_tokenizer = DPRQuestionEncoderTokenizer.from_pretrained(
-        "all-MiniLM-L12-v2"
+        "sentence-transformers/all-MiniLM-L12-v2"
     )
 
     # Tokenize and encode the question

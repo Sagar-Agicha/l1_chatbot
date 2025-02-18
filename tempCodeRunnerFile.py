@@ -1,1 +1,0 @@
-dt_id, question_id, level_id, question_text, type_id, parent_id, link_id, action_id, tags_list
