@@ -71,10 +71,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Encode the context chunks
 def encode_chunks(chunks):
     context_encoder = DPRContextEncoder.from_pretrained(
-        "facebook/dpr-ctx_encoder-multiset-base"
+        "all-MiniLM-L12-v2"
     ).to(device)
     context_tokenizer = DPRContextEncoderTokenizer.from_pretrained(
-        "facebook/dpr-ctx_encoder-multiset-base"
+        "all-MiniLM-L12-v2"
     )
 
     # Tokenize and encode context chunks

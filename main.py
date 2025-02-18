@@ -7,6 +7,7 @@ import history_samba_continuous_function as hm
 import rag_samba_continuous_function as rag
 import csv
 import pandas as pd
+import numpy as np
 from front_function import find_make_and_model
 import json
 import os
@@ -47,6 +48,7 @@ guard = Guard().use_many(
     ProfanityFree()
 )
 
+conversation_history = []
 class WebhookData(BaseModel):
     message: str
     from_number: str
@@ -92,6 +94,11 @@ def set_stage(stage: str, from_number: str, com_name: str = '0', mo_name: str = 
         data[from_number] = {}
    
     data[from_number]["stage"] = stage
+    data[from_number]["com_name"] = com_name
+    data[from_number]["mo_name"] = mo_name
+    data[from_number]["user_name"] = user_name
+    data[from_number]["pdf_file"] = pdf_file
+    data[from_number]["vector_file"] = vector_file
  
     file = open("user_data.json", "w")
     json.dump(data, file)
@@ -106,15 +113,15 @@ async def webhook(request: WebhookData):
                 try:
                     phone_number = request.from_number[3:]
                     cursor.execute("""
-                        SELECT user_name, com_name, mo_name, pdf_file, vector_file
+                        SELECT user_name, com_name, mo_name
                         FROM l1_tree 
                         WHERE phone_number = ?
                     """, (phone_number,))
                     
                     result = cursor.fetchone()
                     if result:
-                        username, com_name, mo_name, pdf_file, vector_file = result
-                        set_stage("data_found", request.from_number, com_name, mo_name, username, pdf_file, vector_file)
+                        username, com_name, mo_name = result
+                        set_stage("data_found", request.from_number)
                         return {"message": f"Welcome {username}\nCan you please confirm your this {com_name} {mo_name} is your Model Name?"}
                     else:
                         set_stage("no_data", request.from_number)
@@ -126,8 +133,38 @@ async def webhook(request: WebhookData):
 
             elif get_stage(request.from_number) == "data_found":
                 if request.message == "Yes":
-                    set_stage("data_confirmed", request.from_number, com_name, mo_name, username, pdf_file, vector_file)
-                    return {"message": "Thank you for confirming your model name"}
+                    phone_number = request.from_number[3:]
+                    cursor.execute("""
+                        SELECT user_name, com_name, mo_name, pdf_file, vector_file
+                        FROM l1_tree 
+                        WHERE phone_number = ?
+                    """, (phone_number,))
+
+                    result = cursor.fetchone()
+                    if result:
+                        username, com_name, mo_name, pdf_file, vector_file = result
+                
+                    all_chunks = []
+                    for path in pdf_file:
+                        current_chunks = rag.get_chunks(path)
+                        all_chunks.extend(current_chunks)
+                    chunks = all_chunks
+                    context_encodings = rag.encode_chunks(chunks)
+
+                    # Save encodings to a file
+                    encodings_filename = f"encodings_{phone_number}.npy"
+                    np.save(encodings_filename, context_encodings)
+                    
+                    # Update vector_file in database
+                    cursor.execute("""
+                        UPDATE l1_tree
+                        SET vector_file = ?
+                        WHERE phone_number = ?
+                    """, (encodings_filename, phone_number))
+                    conn.commit()
+    
+                    set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, encodings_filename)
+                    return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?"}
                 else:
                     set_stage("no_data", request.from_number)
                     return {"message": "Please let me know your model name"}
@@ -135,6 +172,35 @@ async def webhook(request: WebhookData):
             elif get_stage(request.from_number) == "no_data":
                 set_stage("no_data", request.from_number)
                 return {"message": "Please let me know your model name"}
+
+            elif get_stage(request.from_number) == "tech_support":
+                stage_data = get_stage(request.from_number)
+                pdf_file = stage_data.get('pdf_file')
+                encodings_file = stage_data.get('vector_file')
+                
+                # Load the saved encodings
+                context_encodings = np.load(encodings_file)
+                conversation_history.append({"role": "user", "content": request.message})
+                conversation_history.append({"role": "system", "content": """You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.
+                          When answering the user's questions:
+                          1. Clearly indicate when you are using your own knowledge rather than information from the manual.
+                          2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."""})
+                
+                retrieved_context = rag.retrieve_context(request.message, chunks, context_encodings)
+                conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
+
+                # Generate response using the loaded encodings and PDF
+                response, conversation_history = rag.generate_response(
+                    request.message,
+                    conversation_history=conversation_history,
+                    pdf_path=pdf_file,
+                    chunks=rag.get_chunks(pdf_file),
+                    context_encodings=context_encodings
+                )
+
+                conversation_history.append({"role": "assistant", "content": response})
+                return {"message": response}
+
     else:
         set_stage("msg_invalid", request.from_number)
         return {"message": "Message is invalid"}
