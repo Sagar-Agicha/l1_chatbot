@@ -93,7 +93,11 @@ async def webhook(request: WebhookData):
                         return {"message": "Thank you for confirming your model name"}
                     else:
                         set_stage("no_data", request.from_number)
-                        return {"message": "Thank you for confirming your model name"}
+                        return {"message": "Please let me know your model name"}
+
+                elif get_stage(request.from_number) == "no_data":
+                    set_stage("data_found", request.from_number)
+                    return {"message": "Please let me know your model name"}
         else:
             set_stage("msg_invalid", request.from_number)
             return {"message": "Message is invalid"}
