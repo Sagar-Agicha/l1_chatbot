@@ -11,8 +11,17 @@ from front_function import find_make_and_model
 import json
 import os
 from datetime import datetime
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all domains (for testing)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
 
 server = os.getenv("SERVER")
 database = os.getenv("DATABASE")
@@ -87,7 +96,7 @@ async def webhook(request: WebhookData):
     if user_validation['is_valid']:
             if get_stage(request.from_number) is None:
                 try:
-                    phone_number = "+91" + request.from_number
+                    phone_number = request.from_number
                     cursor.execute("""
                         SELECT user_name, mo_name 
                         FROM l1_tree 
