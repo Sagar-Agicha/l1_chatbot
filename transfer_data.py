@@ -1,12 +1,22 @@
 import pandas as pd
 import pyodbc
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+server = os.getenv("SERVER")
+database = os.getenv("DATABASE")
+username = os.getenv("UID") 
+password = os.getenv("PWD")
+
 conn = pyodbc.connect(
     "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=outsystems1.database.windows.net;"
-    "DATABASE=OUTSYSTEM_API;"
-    "UID=Galaxy;"
-    "PWD=OutSystems@123"
+    f"SERVER={server};"
+    f"DATABASE={database};"
+    f"UID={username};"
+    f"PWD={password}"
 )
 cursor = conn.cursor()
 

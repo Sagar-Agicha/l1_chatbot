@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from guardrails import Guard
 import pyodbc
 from guardrails.hub import ToxicLanguage, ProfanityFree
-from flask_socketio import SocketIO, send, emit
 import history_samba_continuous_function as hm
 import rag_samba_continuous_function as rag
 import csv
@@ -15,11 +14,10 @@ from datetime import datetime
 
 app = FastAPI()
 
-# SQL Server connection details
-server = "outsystems1.database.windows.net"
-database = "OUTSYSTEM_API"
-username = "Galaxy"
-password = "OutSystems@123"
+server = os.getenv("SERVER")
+database = os.getenv("DATABASE")
+username = os.getenv("UID") 
+password = os.getenv("PWD")
 
 try:
     conn = pyodbc.connect(
@@ -62,45 +60,44 @@ def set_stage(stage: str, from_number: str):
 
 @app.post("/webhook")
 async def webhook(request: WebhookData):
-    if request.message_type == "text":
-        validated_message = guard.validate(request.message)
-        if validated_message.is_valid:
-                if get_stage(request.from_number) is None:
-                    try:
-                        phone_number = "+91" + request.from_number
-                        cursor.execute("""
-                            SELECT user_name, mo_name 
-                            FROM l1_tree 
-                            WHERE phone_number = ?
-                        """, (phone_number,))
-                        
-                        result = cursor.fetchone()
-                        if result:
-                            username, model_name = result
-                            set_stage("data_found", request.from_number)
-                            return {"message": f"Welcome {username}\nCan you please confirm your this {model_name} is your Model Name?"}
-                        else:
-                            set_stage("no_data", request.from_number)
-                            return {"message": "No user data found"}
-                            
-                    except pyodbc.Error as e:
-                        print(f"Database query error: {e}")
-                        return {"message": "Error retrieving user data"}
-
-                elif get_stage(request.from_number) == "data_found":
-                    if request.message == "Yes":
-                        set_stage("data_confirmed", request.from_number)
-                        return {"message": "Thank you for confirming your model name"}
+    validated_message = guard.validate(request.message)
+    if validated_message.is_valid:
+            if get_stage(request.from_number) is None:
+                try:
+                    phone_number = "+91" + request.from_number
+                    cursor.execute("""
+                        SELECT user_name, mo_name 
+                        FROM l1_tree 
+                        WHERE phone_number = ?
+                    """, (phone_number,))
+                    
+                    result = cursor.fetchone()
+                    if result:
+                        username, model_name = result
+                        set_stage("data_found", request.from_number)
+                        return {"message": f"Welcome {username}\nCan you please confirm your this {model_name} is your Model Name?"}
                     else:
                         set_stage("no_data", request.from_number)
-                        return {"message": "Please let me know your model name"}
+                        return {"message": "No user data found"}
+                        
+                except pyodbc.Error as e:
+                    print(f"Database query error: {e}")
+                    return {"message": "Error retrieving user data"}
 
-                elif get_stage(request.from_number) == "no_data":
-                    set_stage("data_found", request.from_number)
+            elif get_stage(request.from_number) == "data_found":
+                if request.message == "Yes":
+                    set_stage("data_confirmed", request.from_number)
+                    return {"message": "Thank you for confirming your model name"}
+                else:
+                    set_stage("no_data", request.from_number)
                     return {"message": "Please let me know your model name"}
-        else:
-            set_stage("msg_invalid", request.from_number)
-            return {"message": "Message is invalid"}
+
+            elif get_stage(request.from_number) == "no_data":
+                set_stage("data_found", request.from_number)
+                return {"message": "Please let me know your model name"}
+    else:
+        set_stage("msg_invalid", request.from_number)
+        return {"message": "Message is invalid"}
 
 if __name__ == "__main__":
     import uvicorn
