@@ -48,6 +48,21 @@ def get_stage(from_number: str):
     file.close()
     return data["stage"]
 
+def check_text_content(text):
+    try:
+        validation_result = guard.validate(text)
+        print(f"User content validation result: {validation_result.validation_passed}")
+        return {
+            'is_valid': validation_result.validation_passed,
+            'message': "Your message contains content that violates our community guidelines. Please ensure your message is respectful and appropriate before trying again."
+        }
+    except Exception as e:
+        print(f"User content validation error: {str(e)}")
+        return {
+            'is_valid': False,
+            'message': "We encountered an issue processing your message. Please try again with different wording."
+        }
+
 def set_stage(stage: str, from_number: str):
     file = open("user_data.json", "r")
     data = json.load(file)
@@ -60,8 +75,8 @@ def set_stage(stage: str, from_number: str):
 
 @app.post("/webhook")
 async def webhook(request: WebhookData):
-    validated_message = guard.validate(request.message)
-    if validated_message.is_valid:
+    user_validation = check_text_content(request.message)
+    if user_validation.is_valid:
             if get_stage(request.from_number) is None:
                 try:
                     phone_number = "+91" + request.from_number
