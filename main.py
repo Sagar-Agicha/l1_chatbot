@@ -13,6 +13,7 @@ import json
 import os
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
+import openai
 
 app = FastAPI()
 
@@ -22,6 +23,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all headers
+)
+
+client = openai.OpenAI(
+    api_key= os.getenv("OPENAI_API_KEY"),
+    base_url="https://api.sambanova.ai/v1",
 )
 
 server = os.getenv("SERVER")
@@ -195,6 +201,7 @@ async def webhook(request: WebhookData):
                 stage_data = get_all_data(request.from_number)
                 pdf_file = stage_data.get('pdf_file')
                 encodings_file = stage_data.get('vector_file')
+                conversation_history = stage_data.get('conversation_history')
                 
                 # Load the saved encodings
                 context_encodings = np.load(encodings_file)
@@ -207,16 +214,16 @@ async def webhook(request: WebhookData):
                 retrieved_context = rag.retrieve_context(request.message, chunks, context_encodings)
                 conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
 
-                # Generate response using the loaded encodings and PDF
-                response, conversation_history = rag.generate_response(
-                    request.message,
-                    conversation_history=conversation_history,
-                    pdf_path=pdf_file,
-                    chunks=rag.get_chunks(pdf_file),
-                    context_encodings=context_encodings
+                response = client.chat.completions.create(
+                    model="Meta-Llama-3.1-8B-Instruct",
+                    messages=conversation_history,
+                    temperature=0.1,
+                    top_p=0.1,
                 )
+                response = response.choices[0].message.content
 
                 conversation_history.append({"role": "assistant", "content": response})
+                set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, conversation_history)
                 return {"message": response}
 
     else:
