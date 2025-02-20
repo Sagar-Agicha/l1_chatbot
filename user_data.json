@@ -1,1 +1,17 @@
-{"+917977587238": {"stage": "tech_support", "com_name": "Lenovo", "mo_name": "L14", "user_name": "Sagar Agicha", "pdf_file": "lenevo-thinkpad-L14.pdf", "vector_file": "encodings\\encodings_7977587238.npy"}}
+{
+    "+917977587238": {
+        "stage": "tech_support",
+        "last_uuid": [
+            "MSG9c55952b-9dc8-40f5-a85e-d52a34744c25",
+            "MSG0b939d1e-20b4-41ed-8f1f-cec515de7e96"
+        ],
+        "last_time": "2025-02-20 07:04:39",
+        "com_name": "Lenovo",
+        "mo_name": "L14",
+        "user_name": "Sagar Agicha",
+        "pdf_file": "lenevo-thinkpad-L14.pdf",
+        "vector_file": "encodings/encodings_7977587238.npy",
+        "chunks_file": "encodings/chunks_7977587238.pkl",
+        "solution_type": "RAG"
+    }
+}

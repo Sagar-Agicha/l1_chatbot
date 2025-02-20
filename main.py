@@ -1,22 +1,41 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
 from guardrails import Guard
 import pyodbc
 from guardrails.hub import ToxicLanguage, ProfanityFree
 import history_samba_continuous_function as hm
 import rag_samba_continuous_function as rag
+import uuid
 import csv
 import pandas as pd
 import numpy as np
 from front_function import find_make_and_model
 import json
 import os
-from datetime import datetime
+import datetime as dt
 from fastapi.middleware.cors import CORSMiddleware
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 import openai
+import logging
 import pickle
+import psycopg2
+from typing import Dict
+
+processing_store: Dict[str, Dict] = {}
 
 app = FastAPI()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('chatbot.log'),
+        logging.StreamHandler()
+    ]
+)
+
+model = SentenceTransformer('all-mpnet-base-v2')  # Best model for general-purpose semantic matching
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,80 +78,244 @@ class WebhookData(BaseModel):
     message: str
     from_number: str
 
+conn1 = psycopg2.connect(
+    dbname="postgres",
+    user="postgres",
+    password="admin",
+    host="localhost",
+    port="5432"
+)
+
+link_url = "https://api.goapl.com"
+
+cursor1 = conn1.cursor()
+cursor1.execute("ROLLBACK")
+
 def get_all_data(from_number: str):
     try:
-        file = open("user_data.json", "r")
-        data = json.load(file)
-        file.close()
+        with open("user_data.json", "r") as file:
+            data = json.load(file)
         
-        if from_number in data:
-            return data[from_number]
-        else:
-            return None
+        return data.get(from_number, None)
             
     except (FileNotFoundError, json.JSONDecodeError):
         return None
 
 def get_stage(from_number: str):
     try:
-        file = open("user_data.json", "r")
-        data = json.load(file)
-        file.close()
+        with open("user_data.json", "r") as file:
+            data = json.load(file)
         
-        if from_number in data:
-            return data[from_number]["stage"]
-        else:
-            return None
+        return data.get(from_number, {})
             
     except (FileNotFoundError, json.JSONDecodeError):
-        return None
+        return {}
 
 def check_text_content(text):
     try:
         validation_result = guard.validate(text)
-        print(f"User content validation result: {validation_result.validation_passed}")
         return {
             'is_valid': validation_result.validation_passed,
             'message': "Your message contains content that violates our community guidelines. Please ensure your message is respectful and appropriate before trying again."
         }
     except Exception as e:
-        print(f"User content validation error: {str(e)}")
         return {
             'is_valid': False,
             'message': "We encountered an issue processing your message. Please try again with different wording."
         }
 
-def set_stage(stage: str, from_number: str, com_name: str = '0', mo_name: str = '0', user_name: str = '0', pdf_file: str = '0', vector_file: str = '0', conversation_history: list = [], chunks_file: str = '0'):
+def set_stage(stage: str, phone_number: str, com_name: str = '0', mo_name: str = '0', user_name: str = '0', pdf_file: str = '0', vector_file: str = '0', conversation_history: list = [], chunks_file: str = '0', last_uuid: list = [], solution_type: str = '0', rag_no: int = 0, last_time: str = '0'):
     try:
-        file = open("user_data.json", "r")
-        data = json.load(file)
-        file.close()
+        with open("user_data.json", "r") as file:
+            data = json.load(file)
     except (FileNotFoundError, json.JSONDecodeError):
         data = {}
- 
-    if from_number not in data:
-        data[from_number] = {}
-   
-    data[from_number]["stage"] = stage
-    data[from_number]["com_name"] = com_name
-    data[from_number]["mo_name"] = mo_name
-    data[from_number]["user_name"] = user_name
-    data[from_number]["pdf_file"] = pdf_file
-    data[from_number]["vector_file"] = vector_file
-    data[from_number]["conversation_history"] = conversation_history
-    data[from_number]["chunks_file"] = chunks_file
 
-    file = open("user_data.json", "w")
-    json.dump(data, file)
-    file.close()
+    if phone_number not in data:
+        data[phone_number] = {}
+
+    # Update only if the new value is not the default '0'
+    if stage != '0':
+        data[phone_number]["stage"] = stage
+    if com_name != '0':
+        data[phone_number]["com_name"] = com_name
+    if mo_name != '0':
+        data[phone_number]["mo_name"] = mo_name
+    if user_name != '0':
+        data[phone_number]["user_name"] = user_name
+    if pdf_file != '0':
+        data[phone_number]["pdf_file"] = pdf_file
+    if vector_file != '0':
+        data[phone_number]["vector_file"] = vector_file
+    if conversation_history:
+        data[phone_number]["conversation_history"] = conversation_history
+    if chunks_file != '0':
+        data[phone_number]["chunks_file"] = chunks_file
+    if last_uuid:
+        data[phone_number]["last_uuid"] = last_uuid
+    if solution_type != '0':
+        data[phone_number]["solution_type"] = solution_type
+    if rag_no != 0:
+        data[phone_number]["rag_no"] = rag_no
+    if last_time != 0:
+        data[phone_number]["last_time"] = last_time
+
+    with open("user_data.json", "w") as file:
+        json.dump(data, file, indent=4)
+
     return "Stage set successfully"
 
+def get_best_matching_tag(user_query):
+    cursor1.execute("SELECT DISTINCT unnest(tags_list) AS tag FROM decision_tree")
+    tags = [row[0] for row in cursor1.fetchall()]
+    
+    if not tags:
+        return None
+    
+    tag_embeddings = model.encode(tags)
+    query_embedding = model.encode([user_query])
+    
+    similarities = cosine_similarity(query_embedding, tag_embeddings)
+    best_match_idx = np.argmax(similarities)
+    best_match_score = similarities[0][best_match_idx] * 100  # Convert to percentage
+
+    # Check if the best match score is above 80
+    if best_match_score < 80:
+        return None, None, None, None
+
+    cursor1.execute("SELECT dt_id FROM decision_tree WHERE %s = ANY(tags_list) LIMIT 1", (tags[best_match_idx],))
+    result = cursor1.fetchone()
+
+    cursor1.execute("SELECT question_text FROM decision_tree WHERE type_id = 'Issue' and dt_id = %s", (result[0],))
+    dt_data = cursor1.fetchone()
+
+    cursor1.execute("SELECT action_id FROM decision_tree WHERE type_id = 'Issue' and dt_id = %s", (result[0],))
+    action = cursor1.fetchone()
+    
+    dt_id = result[0]
+    question_text = dt_data[0]
+    action = action[0]
+    
+    if not result:
+        return None, None, None, None
+    
+    if not dt_data:
+        return None, None, None, None
+    
+    if not question_text:
+        return None, None, None, None
+    
+    if not action:
+        return None, None, None, None
+    
+    return tags[best_match_idx], dt_id, question_text, action
+
+def store_user_interaction(phone_number: str, stage: str = '0', solution_number: int = 0, result: dict = None, issue: str = None, dt_id: int = None, action: str = None, yes_id: str = None, user_name: str = None):
+    interaction = {
+        "phone_number": phone_number,
+        "stage": stage,
+        "issue": issue,
+        "dt_id": dt_id,
+        "solution_number": solution_number,
+        "timestamp": str(dt.datetime.now()),
+        "user_name": user_name,
+        "result": result,
+        "action": action,
+        "yes_id": yes_id,
+    }
+    
+    try:
+        with open('user_interactions.json', 'r') as file:
+            interactions = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        interactions = []
+    
+    # Update or append interaction
+    updated = False
+    for i, existing in enumerate(interactions):
+        if existing['phone_number'] == phone_number:
+            interactions[i] = interaction
+            updated = True
+            break
+    
+    if not updated:
+        interactions.append(interaction)
+    
+    # Save updated interactions
+    with open('user_interactions.json', 'w') as file:
+        json.dump(interactions, file, indent=4)
+
+def get_user_interaction(phone_number: str) -> dict:
+    """Get stored interaction details for a user"""
+    try:
+        with open('user_interactions.json', 'r') as file:
+            interactions = json.load(file)
+            for interaction in interactions:
+                if interaction['phone_number'] == phone_number:
+                    return interaction
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def encodings_process(unique_id: str, pdf_file: str, phone_number: str, com_name: str, mo_name: str, username: str):
+    all_chunks = []
+    pdf_file = os.path.join("PDFs", pdf_file)
+    current_chunks = rag.get_chunks(pdf_file)
+    all_chunks.extend(current_chunks)
+    chunks = all_chunks
+    context_encodings = rag.encode_chunks(chunks)
+
+    # Save chunks to a file
+    chunks_filename = f"encodings/chunks_{phone_number}.pkl"
+    with open(chunks_filename, 'wb') as f:
+        pickle.dump(chunks, f)
+
+    # Save encodings to a file
+    encodings_filename = f"encodings/encodings_{phone_number}.npy"
+    np.save(encodings_filename, context_encodings)
+
+    # Update vector_file in database
+    cursor.execute("""
+        UPDATE l1_tree
+        SET vector_file = ?, chunks_file = ?
+        WHERE phone_number = ?
+    """, (encodings_filename, chunks_filename, phone_number))
+    conn.commit()
+    vector_file = encodings_filename
+    set_stage("tech_support", phone_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
+    result = f"Processed '{unique_id}' for phone {phone_number}"
+    # Use the same key used in the store
+    key = f"{phone_number}_{unique_id}"
+    processing_store[key]["result"] = result
+
+@app.post("/get_result")
+def get_result(phone_number: str, unique_id: str):
+    """
+    Checks if the background task has completed and returns the result if available.
+    """
+    key = f"{phone_number}_{unique_id}"
+    if key in processing_store:
+        if processing_store[key]["result"]:
+            return {"message": "Completed", "flag": "Yes"}
+        else:
+            return {"message": "Processing not complete yet", "flag": "No"}
+    else:
+        return {"message": "No processing found for the provided details.", "flag": "No"}
+
 @app.post("/webhook")
-async def webhook(request: WebhookData):
+async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
+    phone_number = request.from_number
     user_validation = check_text_content(request.message)
     if user_validation['is_valid']:
             if get_stage(request.from_number) is None:
-                try:
+                cursor.execute("""
+                    SELECT user_name
+                    FROM l1_tree 
+                    WHERE phone_number = ?
+                """, (phone_number,))
+                
+                result = cursor.fetchone()
+
+                if result:
                     phone_number = request.from_number[3:]
                     cursor.execute("""
                         SELECT user_name, com_name, mo_name
@@ -143,67 +326,50 @@ async def webhook(request: WebhookData):
                     result = cursor.fetchone()
                     if result:
                         username, com_name, mo_name = result
-                        set_stage("data_found", request.from_number)
-                        return {"message": f"Welcome {username}\nCan you please confirm your this {com_name} {mo_name} is your Model Name?"}
+                        set_stage("data_found", request.from_number, com_name, mo_name, username)
+                        return {"message": f"Welcome {username}\nCan you please confirm your this {com_name} {mo_name} is your Model Name?",
+                                "flag":"No"}
                     else:
                         set_stage("no_data", request.from_number)
-                        return {"message": "No user data found"}
-                        
-                except pyodbc.Error as e:
-                    print(f"Database query error: {e}")
-                    return {"message": "Error retrieving user data"}
+                        return {"message": "No user data found do you enter a new model name?",
+                                "flag":"No"}
 
             elif get_stage(request.from_number) == "data_found":
-                if request.message == "Yes":
+                if request.message.lower() == "yes":
                     phone_number = request.from_number[3:]
                     cursor.execute("""
-                        SELECT user_name, com_name, mo_name, pdf_file, vector_file
+                        SELECT user_name, com_name, mo_name, pdf_file, vector_file, chunks_file
                         FROM l1_tree 
                         WHERE phone_number = ?
                     """, (phone_number,))
 
                     result = cursor.fetchone()
                     if result:
-                        username, com_name, mo_name, pdf_file, vector_file = result
+                        username, com_name, mo_name, pdf_file, vector_file, chunks_filename = result
                 
-                    if vector_file != '0' and 2<1:
-                        vector_file = os.path.join("encodings", vector_file)
+                    if vector_file != '0' and chunks_filename != '0':
+                        vector_file = vector_file
+                        chunks_filename = chunks_filename
+                        set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
+                        return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
+                                "flag":"No"}
  
                     else:
-                        all_chunks = []
-                        pdf_file = os.path.join("PDFs", pdf_file)
-                        current_chunks = rag.get_chunks(pdf_file)
-                        all_chunks.extend(current_chunks)
-                        chunks = all_chunks
-                        context_encodings = rag.encode_chunks(chunks)
-
-                        # Save chunks to a file
-                        chunks_filename = f"encodings/chunks_{phone_number}.pkl"
-                        with open(chunks_filename, 'wb') as f:
-                            pickle.dump(chunks, f)
- 
-                        # Save encodings to a file
-                        encodings_filename = f"encodings/encodings_{phone_number}.npy"
-                        np.save(encodings_filename, context_encodings)
-                   
-                        # Update vector_file in database
-                        cursor.execute("""
-                            UPDATE l1_tree
-                            SET vector_file = ?
-                            WHERE phone_number = ?
-                        """, (encodings_filename, phone_number))
-                        conn.commit()
-                        vector_file = encodings_filename
-
-                    set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
-                    return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?"}
+                        unique_id = str(uuid.uuid4())
+                        key = f"{phone_number}_{request.message}"
+                        processing_store[key] = {"uid": unique_id, "result": None}
+                        background_tasks.add_task(encodings_process, unique_id=request.message, pdf_file=pdf_file, phone_number=phone_number, com_name=com_name, mo_name=mo_name, username=username)
+                        return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
+                                "flag":"Yes"}
                 else:
                     set_stage("no_data", request.from_number)
-                    return {"message": "Please let me know your model name"}
+                    return {"message": "Please let me know your model name",
+                            "flag":"No"}
 
             elif get_stage(request.from_number) == "no_data":
                 set_stage("no_data", request.from_number)
-                return {"message": "Please let me know your model name"}
+                return {"message": "Please let me know your model name",
+                        "flag":"No"}
 
             elif get_stage(request.from_number) == "tech_support":
                 stage_data = get_all_data(request.from_number)
@@ -211,6 +377,9 @@ async def webhook(request: WebhookData):
                 encodings_file = stage_data.get('vector_file')
                 chunks_file = stage_data.get('chunks_file')
                 conversation_history = stage_data.get('conversation_history', [])
+
+                result, dt_id, question_text, action = get_best_matching_tag(request.message)
+
                 
                 if chunks_file != '0':
                     with open(chunks_file, 'rb') as f:
@@ -240,10 +409,6 @@ async def webhook(request: WebhookData):
                 conversation_history.append({"role": "assistant", "content": response})
                 set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, conversation_history)
                 return {"message": response}
-
-    else:
-        set_stage("msg_invalid", request.from_number)
-        return {"message": "Message is invalid"}
 
 if __name__ == "__main__":
     import uvicorn
