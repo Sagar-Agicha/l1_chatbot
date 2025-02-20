@@ -19,7 +19,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import openai
 import logging
 import pickle
-import psycopg2
+#import psycopg2
 from typing import Dict
 
 processing_store: Dict[str, Dict] = {}
@@ -78,18 +78,22 @@ class WebhookData(BaseModel):
     message: str
     from_number: str
 
-conn1 = psycopg2.connect(
-    dbname="postgres",
-    user="postgres",
-    password="admin",
-    host="localhost",
-    port="5432"
-)
+class get_results(BaseModel):
+    phone_number: str
+    unique_id:str
+
+# conn1 = psycopg2.connect(
+#     dbname="postgres",
+#     user="postgres",
+#     password="admin",
+#     host="localhost",
+#     port="5432"
+# )
 
 link_url = "https://api.goapl.com"
 
-cursor1 = conn1.cursor()
-cursor1.execute("ROLLBACK")
+# cursor1 = conn1.cursor()
+# cursor1.execute("ROLLBACK")
 
 def get_all_data(from_number: str):
     try:
@@ -284,18 +288,18 @@ def encodings_process(unique_id: str, pdf_file: str, phone_number: str, com_name
     set_stage("tech_support", phone_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
     result = f"Processed '{unique_id}' for phone {phone_number}"
     # Use the same key used in the store
-    key = f"{phone_number}_{unique_id}"
+    key = f"{phone_number}"
     processing_store[key]["result"] = result
 
 @app.post("/get_result")
-def get_result(phone_number: str, unique_id: str):
+async def get_result(request:get_results):
     """
     Checks if the background task has completed and returns the result if available.
     """
-    key = f"{phone_number}_{unique_id}"
+    key = f"{request.phone_number}"
     if key in processing_store:
         if processing_store[key]["result"]:
-            return {"message": "Completed", "flag": "Yes"}
+            return {"message": "Completed", "flag": ""}
         else:
             return {"message": "Processing not complete yet", "flag": "No"}
     else:
@@ -306,7 +310,8 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
     phone_number = request.from_number
     user_validation = check_text_content(request.message)
     if user_validation['is_valid']:
-            if get_stage(request.from_number) is None:
+            if get_stage(request.from_number) == {}:
+                phone_number = request.from_number[3:]
                 cursor.execute("""
                     SELECT user_name
                     FROM l1_tree 
@@ -328,13 +333,13 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         username, com_name, mo_name = result
                         set_stage("data_found", request.from_number, com_name, mo_name, username)
                         return {"message": f"Welcome {username}\nCan you please confirm your this {com_name} {mo_name} is your Model Name?",
-                                "flag":"No"}
+                                "flag":""}
                     else:
                         set_stage("no_data", request.from_number)
                         return {"message": "No user data found do you enter a new model name?",
                                 "flag":"No"}
 
-            elif get_stage(request.from_number) == "data_found":
+            elif get_stage(request.from_number)['stage'] == "data_found":
                 if request.message.lower() == "yes":
                     phone_number = request.from_number[3:]
                     cursor.execute("""
@@ -347,12 +352,12 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     if result:
                         username, com_name, mo_name, pdf_file, vector_file, chunks_filename = result
                 
-                    if vector_file != '0' and chunks_filename != '0':
+                    if vector_file != '0' and chunks_filename == '0':
                         vector_file = vector_file
                         chunks_filename = chunks_filename
                         set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
                         return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
-                                "flag":"No"}
+                                "flag":""}
  
                     else:
                         unique_id = str(uuid.uuid4())
@@ -366,12 +371,12 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     return {"message": "Please let me know your model name",
                             "flag":"No"}
 
-            elif get_stage(request.from_number) == "no_data":
+            elif get_stage(request.from_number)['stage'] == "no_data":
                 set_stage("no_data", request.from_number)
                 return {"message": "Please let me know your model name",
                         "flag":"No"}
 
-            elif get_stage(request.from_number) == "tech_support":
+            elif get_stage(request.from_number)['stage'] == "tech_support":
                 stage_data = get_all_data(request.from_number)
                 pdf_file = stage_data.get('pdf_file')
                 encodings_file = stage_data.get('vector_file')
