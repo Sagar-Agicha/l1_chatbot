@@ -286,17 +286,20 @@ def encodings_process(unique_id: str, pdf_file: str, phone_number: str, com_name
     conn.commit()
     vector_file = encodings_filename
     set_stage("tech_support", phone_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
-    result = f"Processed '{unique_id}' for phone {phone_number}"
-    # Use the same key used in the store
-    key = f"{phone_number}"
-    processing_store[key]["result"] = result
+    result = phone_number
+    # Use the phone number as the key
+    key = phone_number
+    if key in processing_store:
+        processing_store[key]["result"] = result
+    else:
+        logging.error(f"Key {key} not found in processing_store")
 
 @app.post("/get_result")
 async def get_result(request:get_results):
     """
     Checks if the background task has completed and returns the result if available.
     """
-    key = f"{request.phone_number}"
+    key = request.phone_number[3:]
     if key in processing_store:
         if processing_store[key]["result"]:
             return {"message": "Completed", "flag": ""}
@@ -307,113 +310,122 @@ async def get_result(request:get_results):
 
 @app.post("/webhook")
 async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
-    phone_number = request.from_number
+    phone_number = request.from_number[3:]  # Remove the '+91' prefix
     user_validation = check_text_content(request.message)
     if user_validation['is_valid']:
-            if get_stage(request.from_number) == {}:
+        logging.info(f"Processing request from {phone_number}")
+        if get_stage(request.from_number) == {}:
+            phone_number = request.from_number[3:]
+            cursor.execute("""
+                SELECT user_name
+                FROM l1_tree 
+                WHERE phone_number = ?
+            """, (phone_number,))
+            
+            result = cursor.fetchone()
+
+            if result:
                 phone_number = request.from_number[3:]
                 cursor.execute("""
-                    SELECT user_name
+                    SELECT user_name, com_name, mo_name
                     FROM l1_tree 
                     WHERE phone_number = ?
                 """, (phone_number,))
                 
                 result = cursor.fetchone()
-
                 if result:
-                    phone_number = request.from_number[3:]
-                    cursor.execute("""
-                        SELECT user_name, com_name, mo_name
-                        FROM l1_tree 
-                        WHERE phone_number = ?
-                    """, (phone_number,))
-                    
-                    result = cursor.fetchone()
-                    if result:
-                        username, com_name, mo_name = result
-                        set_stage("data_found", request.from_number, com_name, mo_name, username)
-                        return {"message": f"Welcome {username}\nCan you please confirm your this {com_name} {mo_name} is your Model Name?",
-                                "flag":""}
-                    else:
-                        set_stage("no_data", request.from_number)
-                        return {"message": "No user data found do you enter a new model name?",
-                                "flag":"No"}
-
-            elif get_stage(request.from_number)['stage'] == "data_found":
-                if request.message.lower() == "yes":
-                    phone_number = request.from_number[3:]
-                    cursor.execute("""
-                        SELECT user_name, com_name, mo_name, pdf_file, vector_file, chunks_file
-                        FROM l1_tree 
-                        WHERE phone_number = ?
-                    """, (phone_number,))
-
-                    result = cursor.fetchone()
-                    if result:
-                        username, com_name, mo_name, pdf_file, vector_file, chunks_filename = result
-                
-                    if vector_file != '0' and chunks_filename == '0':
-                        vector_file = vector_file
-                        chunks_filename = chunks_filename
-                        set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
-                        return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
-                                "flag":""}
- 
-                    else:
-                        unique_id = str(uuid.uuid4())
-                        key = f"{phone_number}_{request.message}"
-                        processing_store[key] = {"uid": unique_id, "result": None}
-                        background_tasks.add_task(encodings_process, unique_id=request.message, pdf_file=pdf_file, phone_number=phone_number, com_name=com_name, mo_name=mo_name, username=username)
-                        return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
-                                "flag":"Yes"}
+                    username, com_name, mo_name = result
+                    set_stage("data_found", request.from_number, com_name, mo_name, username)
+                    return {"message": f"Welcome {username}\nCan you please confirm your this {com_name} {mo_name} is your Model Name?",
+                            "flag":""}
                 else:
                     set_stage("no_data", request.from_number)
-                    return {"message": "Please let me know your model name",
+                    return {"message": "No user data found do you enter a new model name?",
                             "flag":"No"}
 
-            elif get_stage(request.from_number)['stage'] == "no_data":
+        elif get_stage(request.from_number)['stage'] == "data_found":
+            if request.message.lower() == "yes":
+                phone_number = request.from_number[3:]
+                cursor.execute("""
+                    SELECT user_name, com_name, mo_name, pdf_file, vector_file, chunks_file
+                    FROM l1_tree 
+                    WHERE phone_number = ?
+                """, (phone_number,))
+
+                result = cursor.fetchone()
+                if result:
+                    username, com_name, mo_name, pdf_file, vector_file, chunks_filename = result
+                
+                if vector_file != '0' and chunks_filename == '0':
+                    vector_file = vector_file
+                    chunks_filename = chunks_filename
+                    set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
+                    return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
+                            "flag":""}
+ 
+                else:
+                    unique_id = str(uuid.uuid4())
+                    logging.info(f"Adding background task for {phone_number}")
+                    processing_store[phone_number] = {"uid": unique_id, "result": None}
+                    background_tasks.add_task(
+                        encodings_process,
+                        unique_id=request.message,
+                        pdf_file=pdf_file,
+                        phone_number=phone_number,
+                        com_name=com_name,
+                        mo_name=mo_name,
+                        username=username
+                    )
+                    return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
+                            "flag":"Yes"}
+            else:
                 set_stage("no_data", request.from_number)
                 return {"message": "Please let me know your model name",
                         "flag":"No"}
 
-            elif get_stage(request.from_number)['stage'] == "tech_support":
-                stage_data = get_all_data(request.from_number)
-                pdf_file = stage_data.get('pdf_file')
-                encodings_file = stage_data.get('vector_file')
-                chunks_file = stage_data.get('chunks_file')
-                conversation_history = stage_data.get('conversation_history', [])
+        elif get_stage(request.from_number)['stage'] == "no_data":
+            set_stage("no_data", request.from_number)
+            return {"message": "Please let me know your model name",
+                    "flag":"No"}
 
-                result, dt_id, question_text, action = get_best_matching_tag(request.message)
+        elif get_stage(request.from_number)['stage'] == "tech_support":
+            stage_data = get_all_data(request.from_number)
+            pdf_file = stage_data.get('pdf_file')
+            encodings_file = stage_data.get('vector_file')
+            chunks_file = stage_data.get('chunks_file')
+            conversation_history = stage_data.get('conversation_history', [])
 
-                
-                if chunks_file != '0':
-                    with open(chunks_file, 'rb') as f:
-                        chunks = pickle.load(f)
-                else:
-                    chunks = []
+            result, dt_id, question_text, action = get_best_matching_tag(request.message)
 
-                # Load the saved encodings
-                context_encodings = np.load(encodings_file)
-                conversation_history.append({"role": "user", "content": request.message})
-                conversation_history.append({"role": "system", "content": """You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.
-                          When answering the user's questions:
-                          1. Clearly indicate when you are using your own knowledge rather than information from the manual.
-                          2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."""})
-                
-                retrieved_context = rag.retrieve_context(request.message, chunks, context_encodings)
-                conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
+            
+            if chunks_file != '0':
+                with open(chunks_file, 'rb') as f:
+                    chunks = pickle.load(f)
+            else:
+                chunks = []
 
-                response = client.chat.completions.create(
-                    model="Meta-Llama-3.1-8B-Instruct",
-                    messages=conversation_history,
-                    temperature=0.1,
-                    top_p=0.1,
-                )
-                response = response.choices[0].message.content
+            # Load the saved encodings
+            context_encodings = np.load(encodings_file)
+            conversation_history.append({"role": "user", "content": request.message})
+            conversation_history.append({"role": "system", "content": """You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.
+                      When answering the user's questions:
+                      1. Clearly indicate when you are using your own knowledge rather than information from the manual.
+                      2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."""})
+            
+            retrieved_context = rag.retrieve_context(request.message, chunks, context_encodings)
+            conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
 
-                conversation_history.append({"role": "assistant", "content": response})
-                set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, conversation_history)
-                return {"message": response}
+            response = client.chat.completions.create(
+                model="Meta-Llama-3.1-8B-Instruct",
+                messages=conversation_history,
+                temperature=0.1,
+                top_p=0.1,
+            )
+            response = response.choices[0].message.content
+
+            conversation_history.append({"role": "assistant", "content": response})
+            set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, conversation_history)
+            return {"message": response}
 
 if __name__ == "__main__":
     import uvicorn
