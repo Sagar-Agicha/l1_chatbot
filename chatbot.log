@@ -16,3 +16,58 @@
 2025-02-20 15:23:04,668 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
 2025-02-20 15:26:25,883 - INFO - Use pytorch device_name: cpu
 2025-02-20 15:26:25,884 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-20 15:39:54,768 - INFO - Use pytorch device_name: cpu
+2025-02-20 15:39:54,768 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-20 15:40:04,800 - INFO - Processing request from 7977587238
+2025-02-20 15:40:11,952 - INFO - Processing request from 7977587238
+2025-02-20 15:40:11,967 - INFO - Adding background task for 7977587238
+2025-02-20 15:42:50,868 - INFO - Processing request from 7977587238
+2025-02-20 15:42:57,907 - INFO - Processing request from 7977587238
+2025-02-20 15:42:57,909 - INFO - Adding background task for 7977587238
+2025-02-20 15:44:58,858 - INFO - Use pytorch device_name: cpu
+2025-02-20 15:44:58,858 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-20 15:45:11,849 - INFO - Processing request from 7977587238
+2025-02-20 15:45:20,958 - INFO - Processing request from 7977587238
+2025-02-20 15:45:20,960 - INFO - Adding background task for 7977587238
+2025-02-20 15:48:04,805 - INFO - Use pytorch device_name: cpu
+2025-02-20 15:48:04,805 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-20 15:49:13,999 - INFO - Processing request from 7977587238
+2025-02-20 15:49:35,756 - INFO - Processing request from 7977587238
+2025-02-20 15:49:35,758 - INFO - Adding background task for 7977587238
+2025-02-20 15:53:36,788 - INFO - Use pytorch device_name: cpu
+2025-02-20 15:53:36,788 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-20 15:53:59,089 - INFO - Processing request from 7977587238
+2025-02-20 15:54:10,671 - INFO - Processing request from 7977587238
+2025-02-20 15:54:10,675 - INFO - Adding background task for 7977587238
+2025-02-20 15:58:31,958 - INFO - Processing request from 9820011282
+2025-02-20 15:58:50,464 - INFO - Processing request from 9820011282
+2025-02-20 16:07:43,419 - INFO - Use pytorch device_name: cpu
+2025-02-20 16:07:43,420 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-20 16:07:56,981 - INFO - Processing request from 7977587238
+2025-02-20 16:08:13,303 - INFO - Processing request from 7977587238
+2025-02-20 16:08:34,757 - INFO - Adding background task for 7977587238
+2025-02-20 16:12:25,770 - INFO - Use pytorch device_name: cpu
+2025-02-20 16:12:25,770 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-20 16:12:34,653 - INFO - Processing request from 7977587238
+2025-02-20 16:12:42,689 - INFO - Processing request from 7977587238
+2025-02-20 16:12:42,691 - INFO - Adding background task for 7977587238
+2025-02-20 16:13:20,218 - INFO - Processing request from 7977587238
+2025-02-20 16:13:37,207 - INFO - Processing request from 7977587238
+2025-02-20 16:13:37,209 - INFO - Adding background task for 7977587238
+2025-02-20 16:14:29,178 - INFO - Processing request from 9820011282
+2025-02-20 16:14:46,689 - INFO - Processing request from 9820011282
+2025-02-20 16:14:47,188 - INFO - Processing request from 9820011282
+2025-02-20 16:14:47,877 - INFO - Processing request from 9820011282
+2025-02-20 16:17:30,411 - INFO - Use pytorch device_name: cpu
+2025-02-20 16:17:30,411 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-20 16:17:42,115 - INFO - Processing request from 7977587238
+2025-02-20 16:17:52,067 - INFO - Processing request from 7977587238
+2025-02-20 16:18:01,655 - INFO - Processing request from 7977587238
+2025-02-20 16:18:34,816 - INFO - Processing request from 9820011282
+2025-02-20 16:18:46,030 - INFO - Processing request from 9820011282
+2025-02-20 16:18:46,033 - INFO - Adding background task for 9820011282
+2025-02-20 16:50:34,503 - INFO - Use pytorch device_name: cpu
+2025-02-20 16:50:34,503 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-20 17:02:12,263 - INFO - Processing request from 7977587238
+2025-02-20 17:02:22,212 - INFO - Processing request from 7977587238
+2025-02-20 17:02:22,214 - INFO - Adding background task for 7977587238

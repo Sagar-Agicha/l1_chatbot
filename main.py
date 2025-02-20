@@ -285,7 +285,7 @@ def encodings_process(unique_id: str, pdf_file: str, phone_number: str, com_name
     """, (encodings_filename, chunks_filename, phone_number))
     conn.commit()
     vector_file = encodings_filename
-    set_stage("tech_support", phone_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
+    set_stage("tech_support", "+91"+phone_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
     result = phone_number
     # Use the phone number as the key
     key = phone_number
@@ -344,7 +344,18 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             "flag":"No"}
 
         elif get_stage(request.from_number)['stage'] == "data_found":
-            if request.message.lower() == "yes":
+            user_response = request.message.lower()
+            yes_variations = ["yes", "yeah", "yep", "sure", "correct", "right", "ok", "okay"]
+            no_variations = ["no", "not", "nope", "nah", "wrong", "incorrect"]
+            
+            # Direct string matching instead of embeddings
+            user_response = user_response.strip().lower()
+            
+            # Check if response contains any yes variations
+            max_similarity = 1.0 if any(yes_word in user_response for yes_word in yes_variations) else 0.0
+            no_max_similarity = 1.0 if any(no_word in user_response for no_word in no_variations) else 0.0
+            
+            if max_similarity > 0.7:
                 phone_number = request.from_number[3:]
                 cursor.execute("""
                     SELECT user_name, com_name, mo_name, pdf_file, vector_file, chunks_file
@@ -378,10 +389,16 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     )
                     return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
                             "flag":"Yes"}
-            else:
+ 
+            elif no_max_similarity > 0.7:
                 set_stage("no_data", request.from_number)
                 return {"message": "Please let me know your model name",
-                        "flag":"No"}
+                        "flag":""}
+
+            else:
+                set_stage("data_found", request.from_number)
+                return {"message": f"Please Say Yes or No",
+                        "flag":""}
 
         elif get_stage(request.from_number)['stage'] == "no_data":
             set_stage("no_data", request.from_number)
