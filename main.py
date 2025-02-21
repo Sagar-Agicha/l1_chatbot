@@ -517,25 +517,33 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
             if solution_type == "RAG":
                 # Start the background task
-                background_tasks.add_task(
-                    generate_response,
-                    message=request.message,
-                    conversation_history=conversation_history,
-                    chunks_file=chunks_file,
-                    encodings_file=encodings_file,
-                    phone_number=request.from_number,
-                    pdf_file=pdf_file,
-                    vector_file=vector_file,
-                    rag_no=rag_no,
-                    solution_type=solution_type
-                )
+                if chunks_file != '0':
+                    with open(chunks_file, 'rb') as f:
+                        chunks = pickle.load(f)
+                    context_encodings = np.load(encodings_file)
+                    conversation_history.append({"role": "user", "content": user_response})
+                    conversation_history.append({"role": "system", "content": """You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.
+                            When answering the user's questions:
+                            1. Clearly indicate when you are using your own knowledge rather than information from the manual.
+                            2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."""})
+                    
+                    retrieved_context = rag.retrieve_context(user_response, chunks, context_encodings)
+                    conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
+
+                    response = client.chat.completions.create(
+                        model="Meta-Llama-3.1-8B-Instruct",
+                        messages=conversation_history,
+                        temperature=0.1,
+                        top_p=0.1,
+                    )
+                    response = response.choices[0].message.content
+                    conversation_history.append({"role": "assistant", "content": response})
+                    rag_no += 1
+                    solution_type = "0"
+                    set_stage("tech_support", phone_number=request.from_number, pdf_file=pdf_file, vector_file=vector_file, conversation_history=conversation_history, solution_type=solution_type, rag_no=rag_no)
+                    return {"message": f"{response} \nIs it Working?",         
+                            "flag":""}
                 
-                # Return a message indicating the processing has started
-                return {
-                    "message": "Processing your request...",
-                    "flag": "Yes"
-                }
-            
             elif solution_type == "DT":
                 if get_user_interaction(request.from_number) == {}:
                     if result or question_text or dt_id:
@@ -712,7 +720,28 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         clear_stage(request.from_number)
                         return {"message": "Thank you for contacting us.",
                                 "flag":""}
-        
+
+        elif get_stage(request.from_number)["stage"] == "live_agent":
+                user_response = request.message.lower()
+                yes_variations = ["yes", "yeah", "yep", "sure", "correct", "right", "ok", "okay", "perfect", "haa"]
+                no_variations = ["no", "not", "nope", "nah", "wrong", "incorrect", "nahi", "na"]
+                
+                # Direct string matching instead of embeddings
+                user_response = user_response.strip().lower()
+                
+                # Check if response contains any yes variations
+                max_similarity = 1.0 if any(yes_word in user_response for yes_word in yes_variations) else 0.0
+                no_max_similarity = 1.0 if any(no_word in user_response for no_word in no_variations) else 0.0
+                if max_similarity > 0.7:
+                    clear_stage(request.from_number)
+                    return {"message": "Thank you for contacting us. We will connect you with a live agent shortly.",
+                            "flag":""}
+
+                else:
+                    clear_stage(request.from_number)
+                    return {"message": "Thank you for contacting us.",
+                            "flag":""}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)

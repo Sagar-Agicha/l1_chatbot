@@ -29,12 +29,14 @@ cursor = conn.cursor()
 #     """, row.dt_id, row.question_id, row.level_id, row.question_text, row.parent_id, row.link_id, row.action_id, str(row.tags_list))
 
 
-cursor.execute("SELECT * FROM decision_tree ORDER BY dt_id, question_id ASC")
-datas = cursor.fetchall()
-#print(datas)
+# cursor.execute("SELECT * FROM decision_tree ORDER BY dt_id, question_id ASC")
+# datas = cursor.fetchall()
+# #print(datas)
 
-for data in datas:
-    print(data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8] + "\n")
+# for data in datas:
+#     print(data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8] + "\n")
+
+cursor.execute("UPDATE ")
 
 conn.commit()
 cursor.close()
