@@ -350,8 +350,13 @@ def generate_response(message: str, conversation_history: list, chunks_file: str
         rag_no += 1
         solution_type = "0"
         set_stage("tech_support", phone_number=phone_number, pdf_file=pdf_file, vector_file=vector_file, conversation_history=conversation_history, solution_type=solution_type, rag_no=rag_no)
-        return {"message": response + "\nIs it Working?",
-                "flag":""}
+        
+        # Store the result in processing_store
+        key = phone_number[3:]  # Remove the '+91' prefix
+        if key in processing_store:
+            processing_store[key]["result"] = response + "\nIs it Working?"
+        else:
+            logging.error(f"Key {key} not found in processing_store")
 
 @app.post("/get_result")
 async def get_result(request:get_results):
@@ -361,7 +366,10 @@ async def get_result(request:get_results):
     key = request.phone_number[3:]
     if key in processing_store:
         if processing_store[key]["result"]:
-            return {"message": "Completed", "flag": ""}
+            result = processing_store[key]["result"]
+            # Clear the result after retrieving it
+            processing_store[key]["result"] = None
+            return {"message": result, "flag": ""}
         else:
             return {"message": "Processing not complete yet", "flag": "No"}
     else:
@@ -510,11 +518,8 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
 
             if solution_type == "RAG":
-                unique_id = str(uuid.uuid4())
-                logging.info(f"Adding background task for {phone_number}")
-                processing_store[phone_number] = {"uid": unique_id, "result": None}
-                response = " "
-                response = background_tasks.add_task(
+                # Start the background task
+                background_tasks.add_task(
                     generate_response,
                     message=request.message,
                     conversation_history=conversation_history,
@@ -526,8 +531,12 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     rag_no=rag_no,
                     solution_type=solution_type
                 )
-                return {"message": response + "\nIs it Working?",
-                        "flag":"Yes"}
+                
+                # Return a message indicating the processing has started
+                return {
+                    "message": "Processing your request...",
+                    "flag": "Yes"
+                }
             
             elif solution_type == "DT":
                 if get_user_interaction(request.from_number) == {}:
