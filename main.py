@@ -157,16 +157,44 @@ def set_stage(stage: str, phone_number: str, com_name: str = '0', mo_name: str =
 
     return "Stage set successfully"
 
+def clear_stage(phone_number: str):
+    try:
+        with open("user_data.json", "r") as file:
+            data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        data = {}
+
+    if phone_number not in data:
+        data[phone_number] = {}
+
+    # Update only if the new value is not the default '0'
+        data[phone_number]["stage"] = "0"
+        data[phone_number]["com_name"] = "0"
+        data[phone_number]["solution_type"] = "0"
+
+    with open("user_data.json", "w") as file:
+        json.dump(data, file, indent=4)
+
+    return "Stage set successfully"
+
 def get_best_matching_tag(user_query):
-    cursor.execute("SELECT DISTINCT value AS tag FROM decision_tree CROSS APPLY STRING_SPLIT(tags_list, ',')")
-    tags = [row[0] for row in cursor.fetchall()]
+    # Fetch all distinct tags and strip extra whitespace
+    cursor.execute("""
+        SELECT DISTINCT LTRIM(RTRIM(value)) AS tag 
+        FROM decision_tree 
+        CROSS APPLY STRING_SPLIT(tags_list, ',')
+    """)
+    rows = cursor.fetchall()
+    tags = [row[0] for row in rows]
     
     if not tags:
-        return None
+        return None, None, None, None
     
+    # Encode tags and user query using your NLP model
     tag_embeddings = model.encode(tags)
     query_embedding = model.encode([user_query])
     
+    # Compute cosine similarity between the query and each tag
     similarities = cosine_similarity(query_embedding, tag_embeddings)
     best_match_idx = np.argmax(similarities)
     best_match_score = similarities[0][best_match_idx] * 100
@@ -174,39 +202,46 @@ def get_best_matching_tag(user_query):
     if best_match_score < 80:
         return None, None, None, None
 
+    best_tag = tags[best_match_idx]
+    
+    # Retrieve dt_id for the row that contains the best matching tag
     cursor.execute("""
         SELECT dt_id 
         FROM decision_tree 
         WHERE EXISTS (
             SELECT 1 
-            FROM STRING_SPLIT(tags_list, ',') 
-            WHERE value = ?
-        )""", (tags[best_match_idx],))
+            FROM STRING_SPLIT(tags_list, ',')
+            WHERE LTRIM(RTRIM(value)) = ?
+        )
+    """, (best_tag,))
     result = cursor.fetchone()
-
-    cursor.execute("SELECT question_text FROM decision_tree WHERE type_id = 'Issue' AND dt_id = ?", (result[0],))
-    dt_data = cursor.fetchone()
-
-    cursor.execute("SELECT action_id FROM decision_tree WHERE type_id = 'Issue' AND dt_id = ?", (result[0],))
-    action = cursor.fetchone()
-    
-    dt_id = result[0]
-    question_text = dt_data[0]
-    action = action[0]
-    
     if not result:
         return None, None, None, None
+    dt_id = result[0]
     
-    if not dt_data:
+    # Retrieve the question text for the dt_id
+    cursor.execute("""
+        SELECT question_text 
+        FROM decision_tree 
+        WHERE type_id = 'Issue' AND dt_id = ?
+    """, (dt_id,))
+    dt_data = cursor.fetchone()
+    if not dt_data or not dt_data[0]:
         return None, None, None, None
-    
-    if not question_text:
+    question_text = dt_data[0]
+
+    # Retrieve the action_id for the dt_id
+    cursor.execute("""
+        SELECT action_id 
+        FROM decision_tree 
+        WHERE type_id = 'Issue' AND dt_id = ?
+    """, (dt_id,))
+    action_data = cursor.fetchone()
+    if not action_data or not action_data[0]:
         return None, None, None, None
+    action = action_data[0]
     
-    if not action:
-        return None, None, None, None
-    
-    return tags[best_match_idx], dt_id, question_text, action
+    return best_tag, dt_id, question_text, action
 
 def store_user_interaction(phone_number: str, stage: str = '0', solution_number: int = 0, result: dict = None, issue: str = None, dt_id: int = None, action: str = None, yes_id: str = None, user_name: str = None):
     interaction = {
@@ -288,7 +323,7 @@ def encodings_process(pdf_file: str, phone_number: str, com_name: str, mo_name: 
     else:
         logging.error(f"Key {key} not found in processing_store")
 
-def generate_response(message: str, conversation_history: list, chunks_file: str, encodings_file: str, phone_number: str, com_name: str, mo_name: str, username: str, pdf_file: str, vector_file: str, rag_no: int, solution_type: str):
+def generate_response(message: str, conversation_history: list, chunks_file: str, encodings_file: str, phone_number: str, pdf_file: str, vector_file: str, rag_no: int, solution_type: str):
     if chunks_file != '0':
         with open(chunks_file, 'rb') as f:
             chunks = pickle.load(f)
@@ -314,7 +349,7 @@ def generate_response(message: str, conversation_history: list, chunks_file: str
         conversation_history.append({"role": "assistant", "content": response})
         rag_no += 1
         solution_type = "0"
-        set_stage("tech_support", phone_number=phone_number, com_name=com_name, mo_name=mo_name, user_name=username, pdf_file=pdf_file, vector_file=vector_file, conversation_history=conversation_history, solution_type=solution_type, rag_no=rag_no)
+        set_stage("tech_support", phone_number=phone_number, pdf_file=pdf_file, vector_file=vector_file, conversation_history=conversation_history, solution_type=solution_type, rag_no=rag_no)
         return {"message": response + "\nIs it Working?",
                 "flag":""}
 
@@ -404,7 +439,6 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     processing_store[phone_number] = {"uid": unique_id, "result": None}
                     background_tasks.add_task(
                         encodings_process,
-                        unique_id=request.message,
                         pdf_file=pdf_file,
                         phone_number=phone_number,
                         com_name=com_name,
@@ -452,7 +486,8 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
             if max_similarity > 0.7 and solution_type != "DT":
                 current_last_uuid.append(str(uuid))
-                set_stage(stage="start", phone_number=request.from_number, last_uuid=current_last_uuid)
+                #set_stage(stage="start", phone_number=request.from_number, last_uuid=current_last_uuid)
+                clear_stage(request.from_number)
                 return {"message": "Thank you for contacting us.",
                         "flag":""}
 
@@ -478,6 +513,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 unique_id = str(uuid.uuid4())
                 logging.info(f"Adding background task for {phone_number}")
                 processing_store[phone_number] = {"uid": unique_id, "result": None}
+                response = " "
                 response = background_tasks.add_task(
                     generate_response,
                     message=request.message,
@@ -485,9 +521,6 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     chunks_file=chunks_file,
                     encodings_file=encodings_file,
                     phone_number=request.from_number,
-                    com_name=com_name,
-                    mo_name=mo_name,
-                    username=username,
                     pdf_file=pdf_file,
                     vector_file=vector_file,
                     rag_no=rag_no,
@@ -615,7 +648,8 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_stage = "live_agent"
                                 store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=action, yes_id=yes_id)
                                 current_last_uuid.append(str(uuid))
-                                set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                                clear_stage(request.from_number)
+                                #set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": "Thank you for contacting us. We will connect you with a live agent shortly.",
                                         "flag":""}
 
@@ -656,16 +690,19 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
                         else:
                             current_last_uuid.append(str(uuid))
-                            set_stage(stage="start", phone_number=request.from_number, last_uuid=current_last_uuid)
+                            #set_stage(stage="start", phone_number=request.from_number, last_uuid=current_last_uuid)
+                            clear_stage(request.from_number)
                             return {"message": "Thank you for contacting us.",
                                     "flag":""}
 
                 elif get_user_interaction(request.from_number)["stage"] == "live_agent":
                     if max_similarity > 0.7:
+                        clear_stage(request.from_number)
                         return {"message": "Thank you for contacting us. We will connect you with a live agent shortly.",
                                 "flag":""}
 
                     else:
+                        clear_stage(request.from_number)
                         return {"message": "Thank you for contacting us.",
                                 "flag":""}
         

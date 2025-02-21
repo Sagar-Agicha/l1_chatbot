@@ -7,6 +7,10 @@
         "last_time": "0",
         "pdf_file": "PDFs\\lenevo-thinkpad-L14.pdf",
         "vector_file": "encodings/encodings_7977587238.npy",
-        "conversation_history": "encodings/chunks_7977587238.pkl"
+        "conversation_history": "encodings/chunks_7977587238.pkl",
+        "last_uuid": [
+            "<module 'uuid' from 'c:\\\\Users\\\\Shreya\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\Lib\\\\uuid.py'>"
+        ],
+        "solution_type": "RAG"
     }
 }
