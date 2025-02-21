@@ -7,10 +7,29 @@
         "last_time": "0",
         "pdf_file": "PDFs\\lenevo-thinkpad-L14.pdf",
         "vector_file": "encodings/encodings_7977587238.npy",
-        "conversation_history": "encodings/chunks_7977587238.pkl",
+        "chunks_file": "encodings/chunks_7977587238.pkl",
         "last_uuid": [
             "<module 'uuid' from 'c:\\\\Users\\\\Shreya\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\Lib\\\\uuid.py'>"
         ],
-        "solution_type": "RAG"
+        "solution_type": "RAG",
+        "conversation_history": [
+            {
+                "role": "user",
+                "content": "I&#x27;m having problems connecting to my wifi"
+            },
+            {
+                "role": "system",
+                "content": "You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.\n                When answering the user's questions:\n                1. Clearly indicate when you are using your own knowledge rather than information from the manual.\n                2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."
+            },
+            {
+                "role": "system",
+                "content": "Context:\nBottom\n1. Docking-station hook holes\nUse the docking-station hook holes to secure a supported docking station.\n2. Speakers\nEnable you to experience high-quality sound.\n8\nL14 Gen 1 and L15 Gen 1 User Guide\n"
+            },
+            {
+                "role": "assistant",
+                "content": "I'm here to help you troubleshoot the issue with connecting to your WiFi. \n\nFirst, let's try a simple step: \n\n**Check your WiFi switch**. Ensure that your laptop's WiFi switch is turned on. This switch is usually located on the top right side of your laptop or on the keyboard. If you're using a laptop with a keyboard, you can also check the function keys (F keys) for a WiFi toggle.\n\nIf you're still having trouble, please let me know and we can proceed with the next step."
+            }
+        ],
+        "rag_no": 1
     }
 }

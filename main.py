@@ -314,7 +314,7 @@ def encodings_process(pdf_file: str, phone_number: str, com_name: str, mo_name: 
     """, (encodings_filename, chunks_filename, phone_number))
     conn.commit()
     vector_file = encodings_filename
-    set_stage("tech_support", "+91"+phone_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
+    set_stage("tech_support", "+91"+phone_number, com_name, mo_name, username, pdf_file=pdf_file, vector_file=vector_file, chunks_file=chunks_filename)
     result = phone_number
     # Use the phone number as the key
     key = phone_number
@@ -327,8 +327,6 @@ def generate_response(message: str, conversation_history: list, chunks_file: str
     if chunks_file != '0':
         with open(chunks_file, 'rb') as f:
             chunks = pickle.load(f)
-    else:
-        chunks = []
         context_encodings = np.load(encodings_file)
         conversation_history.append({"role": "user", "content": message})
         conversation_history.append({"role": "system", "content": """You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.

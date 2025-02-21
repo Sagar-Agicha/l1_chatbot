@@ -137,3 +137,20 @@
 2025-02-21 12:58:46,236 - INFO - Adding background task for 7977587238
 2025-02-21 12:58:46,951 - INFO - Processing request from 7977587238
 2025-02-21 12:58:46,953 - INFO - Adding background task for 7977587238
+2025-02-21 13:04:33,748 - INFO - Use pytorch device_name: cpu
+2025-02-21 13:04:33,748 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-21 13:04:43,784 - INFO - Processing request from 7977587238
+2025-02-21 13:04:51,396 - INFO - Processing request from 7977587238
+2025-02-21 13:04:51,398 - INFO - Adding background task for 7977587238
+2025-02-21 13:05:22,733 - INFO - Processing request from 7977587238
+2025-02-21 13:08:35,410 - INFO - Use pytorch device_name: cpu
+2025-02-21 13:08:35,412 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-21 13:08:51,094 - INFO - Processing request from 7977587238
+2025-02-21 13:08:56,873 - INFO - Processing request from 7977587238
+2025-02-21 13:08:56,876 - INFO - Adding background task for 7977587238
+2025-02-21 13:09:30,963 - INFO - Processing request from 7977587238
+2025-02-21 13:12:40,479 - INFO - Use pytorch device_name: cpu
+2025-02-21 13:12:40,479 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-21 13:12:51,206 - INFO - Processing request from 7977587238
+2025-02-21 13:12:57,273 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-21 13:12:57,296 - ERROR - Key 7977587238 not found in processing_store
