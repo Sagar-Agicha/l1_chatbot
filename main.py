@@ -158,24 +158,30 @@ def set_stage(stage: str, phone_number: str, com_name: str = '0', mo_name: str =
     return "Stage set successfully"
 
 def clear_stage(phone_number: str):
+    # Clear user_data.json
     try:
         with open("user_data.json", "r") as file:
             data = json.load(file)
+        # Remove the entry for this phone number if it exists
+        if phone_number in data:
+            del data[phone_number]
+        with open("user_data.json", "w") as file:
+            json.dump(data, file, indent=4)
     except (FileNotFoundError, json.JSONDecodeError):
-        data = {}
+        pass
 
-    if phone_number not in data:
-        data[phone_number] = {}
+    # Clear user_interactions.json
+    try:
+        with open("user_interactions.json", "r") as file:
+            interactions = json.load(file)
+        # Remove the entry for this phone number
+        interactions = [i for i in interactions if i['phone_number'] != phone_number]
+        with open("user_interactions.json", "w") as file:
+            json.dump(interactions, file, indent=4)
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
 
-    # Update only if the new value is not the default '0'
-        data[phone_number]["stage"] = "0"
-        data[phone_number]["com_name"] = "0"
-        data[phone_number]["solution_type"] = "0"
-
-    with open("user_data.json", "w") as file:
-        json.dump(data, file, indent=4)
-
-    return "Stage set successfully"
+    return "Stage cleared successfully"
 
 def get_best_matching_tag(user_query):
     # Fetch all distinct tags and strip extra whitespace
