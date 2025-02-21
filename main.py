@@ -19,7 +19,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import openai
 import logging
 import pickle
-#import psycopg2
 from typing import Dict
 
 processing_store: Dict[str, Dict] = {}
@@ -82,18 +81,7 @@ class get_results(BaseModel):
     phone_number: str
     unique_id:str
 
-# conn1 = psycopg2.connect(
-#     dbname="postgres",
-#     user="postgres",
-#     password="admin",
-#     host="localhost",
-#     port="5432"
-# )
-
 link_url = "https://api.goapl.com"
-
-# cursor1 = conn1.cursor()
-# cursor1.execute("ROLLBACK")
 
 def get_all_data(from_number: str):
     try:
@@ -170,8 +158,8 @@ def set_stage(stage: str, phone_number: str, com_name: str = '0', mo_name: str =
     return "Stage set successfully"
 
 def get_best_matching_tag(user_query):
-    cursor1.execute("SELECT DISTINCT unnest(tags_list) AS tag FROM decision_tree")
-    tags = [row[0] for row in cursor1.fetchall()]
+    cursor.execute("SELECT DISTINCT value AS tag FROM decision_tree CROSS APPLY STRING_SPLIT(tags_list, ',')")
+    tags = [row[0] for row in cursor.fetchall()]
     
     if not tags:
         return None
@@ -181,20 +169,26 @@ def get_best_matching_tag(user_query):
     
     similarities = cosine_similarity(query_embedding, tag_embeddings)
     best_match_idx = np.argmax(similarities)
-    best_match_score = similarities[0][best_match_idx] * 100  # Convert to percentage
+    best_match_score = similarities[0][best_match_idx] * 100
 
-    # Check if the best match score is above 80
     if best_match_score < 80:
         return None, None, None, None
 
-    cursor1.execute("SELECT dt_id FROM decision_tree WHERE %s = ANY(tags_list) LIMIT 1", (tags[best_match_idx],))
-    result = cursor1.fetchone()
+    cursor.execute("""
+        SELECT dt_id 
+        FROM decision_tree 
+        WHERE EXISTS (
+            SELECT 1 
+            FROM STRING_SPLIT(tags_list, ',') 
+            WHERE value = ?
+        )""", (tags[best_match_idx],))
+    result = cursor.fetchone()
 
-    cursor1.execute("SELECT question_text FROM decision_tree WHERE type_id = 'Issue' and dt_id = %s", (result[0],))
-    dt_data = cursor1.fetchone()
+    cursor.execute("SELECT question_text FROM decision_tree WHERE type_id = 'Issue' AND dt_id = ?", (result[0],))
+    dt_data = cursor.fetchone()
 
-    cursor1.execute("SELECT action_id FROM decision_tree WHERE type_id = 'Issue' and dt_id = %s", (result[0],))
-    action = cursor1.fetchone()
+    cursor.execute("SELECT action_id FROM decision_tree WHERE type_id = 'Issue' AND dt_id = ?", (result[0],))
+    action = cursor.fetchone()
     
     dt_id = result[0]
     question_text = dt_data[0]
@@ -260,7 +254,7 @@ def get_user_interaction(phone_number: str) -> dict:
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
-def encodings_process(unique_id: str, pdf_file: str, phone_number: str, com_name: str, mo_name: str, username: str):
+def encodings_process(pdf_file: str, phone_number: str, com_name: str, mo_name: str, username: str):
     all_chunks = []
     pdf_file = os.path.join("PDFs", pdf_file)
     current_chunks = rag.get_chunks(pdf_file)
@@ -293,6 +287,36 @@ def encodings_process(unique_id: str, pdf_file: str, phone_number: str, com_name
         processing_store[key]["result"] = result
     else:
         logging.error(f"Key {key} not found in processing_store")
+
+def generate_response(message: str, conversation_history: list, chunks_file: str, encodings_file: str, phone_number: str, com_name: str, mo_name: str, username: str, pdf_file: str, vector_file: str, rag_no: int, solution_type: str):
+    if chunks_file != '0':
+        with open(chunks_file, 'rb') as f:
+            chunks = pickle.load(f)
+    else:
+        chunks = []
+        context_encodings = np.load(encodings_file)
+        conversation_history.append({"role": "user", "content": message})
+        conversation_history.append({"role": "system", "content": """You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.
+                When answering the user's questions:
+                1. Clearly indicate when you are using your own knowledge rather than information from the manual.
+                2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."""})
+        
+        retrieved_context = rag.retrieve_context(message, chunks, context_encodings)
+        conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
+
+        response = client.chat.completions.create(
+            model="Meta-Llama-3.1-8B-Instruct",
+            messages=conversation_history,
+            temperature=0.1,
+            top_p=0.1,
+        )
+        response = response.choices[0].message.content
+        conversation_history.append({"role": "assistant", "content": response})
+        rag_no += 1
+        solution_type = "0"
+        set_stage("tech_support", phone_number=phone_number, com_name=com_name, mo_name=mo_name, user_name=username, pdf_file=pdf_file, vector_file=vector_file, conversation_history=conversation_history, solution_type=solution_type, rag_no=rag_no)
+        return {"message": response + "\nIs it Working?",
+                "flag":""}
 
 @app.post("/get_result")
 async def get_result(request:get_results):
@@ -345,7 +369,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
         elif get_stage(request.from_number)['stage'] == "data_found":
             user_response = request.message.lower()
-            yes_variations = ["yes", "yeah", "yep", "sure", "correct", "right", "ok", "okay"]
+            yes_variations = ["yes", "yeah", "yep", "sure", "correct", "right", "ok", "okay", "perfect"]
             no_variations = ["no", "not", "nope", "nah", "wrong", "incorrect"]
             
             # Direct string matching instead of embeddings
@@ -411,39 +435,240 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
             encodings_file = stage_data.get('vector_file')
             chunks_file = stage_data.get('chunks_file')
             conversation_history = stage_data.get('conversation_history', [])
-
-            result, dt_id, question_text, action = get_best_matching_tag(request.message)
-
+            solution_type = stage_data.get('solution_type', "0")
+            vector_file = stage_data.get('vector_file')
+            current_last_uuid = get_stage(request.from_number).get("last_uuid", [])
+            rag_no = stage_data.get('rag_no', 0)
+            user_response = request.message.lower()
+            yes_variations = ["yes", "yeah", "yep", "sure", "correct", "right", "ok", "okay", "perfect", "haa"]
+            no_variations = ["no", "not", "nope", "nah", "wrong", "incorrect", "nahi", "na"]
             
-            if chunks_file != '0':
-                with open(chunks_file, 'rb') as f:
-                    chunks = pickle.load(f)
-            else:
-                chunks = []
-
-            # Load the saved encodings
-            context_encodings = np.load(encodings_file)
-            conversation_history.append({"role": "user", "content": request.message})
-            conversation_history.append({"role": "system", "content": """You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.
-                      When answering the user's questions:
-                      1. Clearly indicate when you are using your own knowledge rather than information from the manual.
-                      2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."""})
+            # Direct string matching instead of embeddings
+            user_response = user_response.strip().lower()
             
-            retrieved_context = rag.retrieve_context(request.message, chunks, context_encodings)
-            conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
+            # Check if response contains any yes variations
+            max_similarity = 1.0 if any(yes_word in user_response for yes_word in yes_variations) else 0.0
+            no_max_similarity = 1.0 if any(no_word in user_response for no_word in no_variations) else 0.0
 
-            response = client.chat.completions.create(
-                model="Meta-Llama-3.1-8B-Instruct",
-                messages=conversation_history,
-                temperature=0.1,
-                top_p=0.1,
-            )
-            response = response.choices[0].message.content
+            if max_similarity > 0.7 and solution_type != "DT":
+                current_last_uuid.append(str(uuid))
+                set_stage(stage="start", phone_number=request.from_number, last_uuid=current_last_uuid)
+                return {"message": "Thank you for contacting us.",
+                        "flag":""}
 
-            conversation_history.append({"role": "assistant", "content": response})
-            set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, conversation_history)
-            return {"message": response}
+            elif rag_no == 3:
+                set_stage(stage="live_agent", phone_number=request.from_number)
+                current_last_uuid.append(str(uuid))
+                return {"message": "Do you want to connect with a live agent?",
+                        "flag":""}
+                
+            elif solution_type == "0":
+                result, dt_id, question_text, action = get_best_matching_tag(request.message)
+                if result is not None:
+                    solution_type = "DT"
+                    current_last_uuid.append(str(uuid))
+                    set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
+                
+                else:
+                    solution_type = "RAG"
+                    current_last_uuid.append(str(uuid))
+                    set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
 
+            if solution_type == "RAG":
+                unique_id = str(uuid.uuid4())
+                logging.info(f"Adding background task for {phone_number}")
+                processing_store[phone_number] = {"uid": unique_id, "result": None}
+                response = background_tasks.add_task(
+                    generate_response,
+                    message=request.message,
+                    conversation_history=conversation_history,
+                    chunks_file=chunks_file,
+                    encodings_file=encodings_file,
+                    phone_number=request.from_number,
+                    com_name=com_name,
+                    mo_name=mo_name,
+                    username=username,
+                    pdf_file=pdf_file,
+                    vector_file=vector_file,
+                    rag_no=rag_no,
+                    solution_type=solution_type
+                )
+                return {"message": response + "\nIs it Working?",
+                        "flag":"Yes"}
+            
+            elif solution_type == "DT":
+                if get_user_interaction(request.from_number) == {}:
+                    if result or question_text or dt_id:
+                        current_stage = "start_solution"
+                        store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=question_text, dt_id=dt_id, action=action)
+                        set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                        return {"message": f"{question_text} \nCan you confirm this is related to your issue?",         
+                                "flag":""}
+                    else:
+                        current_stage = "location_verified"
+                        current_last_uuid.append(str(uuid))
+                        store_user_interaction(request.from_number, current_stage, 0)
+                        set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                        return {"message": "Please describe the issue again in more simple words.",
+                                "flag":""}
+
+                elif get_user_interaction(request.from_number)["stage"] == "start_solution":
+                    if max_similarity > 0.7:
+                        result = get_user_interaction(request.from_number)
+                        issue = result.get('issue', None)
+                        dt_id = result.get('dt_id', None)
+                        action = result.get('action', None)
+                        yes_id = result.get('yes_id', None)
+                        if issue and dt_id and action:
+                            cursor.execute("SELECT question_text FROM decision_tree WHERE question_id = ? AND dt_id = ?", (action, dt_id))
+                            question_text = cursor.fetchone()
+
+                            cursor.execute("SELECT link_id FROM decision_tree WHERE question_id = ? AND dt_id = ?", (action, dt_id))
+                            link_id = cursor.fetchone()
+
+                            cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'No'", (action, dt_id))
+                            no_id = cursor.fetchone()
+
+                            cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'Yes'", (action, dt_id))
+                            yes_id = cursor.fetchone()
+
+                            action = no_id[0]
+                            yes_id = yes_id[0]
+
+                            current_stage = "ongoing_solution"
+                            store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=action, yes_id=yes_id)
+                            if link_id[0] == "0":
+                                current_last_uuid.append(str(uuid))
+                                set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                                return {"message": question_text[0],
+                                        "flag":""}
+
+                            else:
+                                video_name = link_id[0]
+                                set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                                return {"message": question_text[0] + "\n" + f"{link_url}/videos/{video_name}",
+                                        "flag":""}
+                    else:
+                        solution_type = "RAG"
+                        current_last_uuid.append(str(uuid))
+                        set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
+                        current_stage = "location_requested"
+                        store_user_interaction(request.from_number, current_stage, 0)
+                        current_last_uuid.append(str(uuid))
+                        set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                        return {"message": "Please describe the issue again in more simple words.",
+                                "flag":""}
+
+                elif get_user_interaction(request.from_number)["stage"] == "ongoing_solution":
+                    result = get_user_interaction(request.from_number)
+                    issue = result.get('issue', None)
+                    dt_id = result.get('dt_id', None)
+                    action = result.get('action', None)
+                    yes_id = result.get('yes_id', None)
+                    no_id = result.get('no_id', None)
+
+                    if no_max_similarity > 0.7:
+                        if action == "handover":
+                            current_stage = "live_agent"
+                            store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=action)
+                            current_last_uuid.append(str(uuid))
+                            set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+
+                        elif issue and dt_id and action:
+                            cursor.execute("SELECT question_text FROM decision_tree WHERE question_id = ? AND dt_id = ?", (action, dt_id))
+                            question_text = cursor.fetchone()
+
+                            cursor.execute("SELECT link_id FROM decision_tree WHERE question_id = ? AND dt_id = ?", (action, dt_id))
+                            link_id = cursor.fetchone()
+
+                            cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'No'", (action, dt_id))
+                            no_id = cursor.fetchone()
+
+                            cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'Yes'", (action, dt_id))
+                            yes_id = cursor.fetchone()
+
+                            if yes_id:
+                                yes_id = yes_id[0]
+                            if no_id:
+                                no_id = no_id[0]
+
+                            if link_id[0] == "0":
+                                current_last_uuid.append(str(uuid))
+                                current_stage = "ongoing_solution"
+                                store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
+                                set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                                return {"message": question_text[0],
+                                        "flag":""}
+                            else:
+                                video_name = link_id[0]
+                                current_stage = "ongoing_solution"
+                                store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
+                                set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                                return {"message": question_text[0] + "\n" + f"{link_url}/videos/{video_name}",
+                                        "flag":""}
+
+                    elif max_similarity > 0.7:
+                        result = get_user_interaction(request.from_number)
+                        yes_id = result.get('yes_id', None)
+                        if yes_id != "solved":
+                            if yes_id == "handover":
+                                current_stage = "live_agent"
+                                store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=action, yes_id=yes_id)
+                                current_last_uuid.append(str(uuid))
+                                set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                                return {"message": "Thank you for contacting us. We will connect you with a live agent shortly.",
+                                        "flag":""}
+
+                            elif issue and dt_id and action:
+                                cursor.execute("SELECT question_text FROM decision_tree WHERE question_id = ? AND dt_id = ?", (yes_id, dt_id))
+                                question_text = cursor.fetchone()
+
+                                cursor.execute("SELECT link_id FROM decision_tree WHERE question_id = ? AND dt_id = ?", (yes_id, dt_id))
+                                link_id = cursor.fetchone()
+
+                                cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'No'", (yes_id, dt_id))
+                                no_id = cursor.fetchone()
+                                print("no_id = ", no_id)
+
+                                cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'Yes'", (yes_id, dt_id))
+                                yes_id = cursor.fetchone()
+                                print("yes_id = ", yes_id)
+
+                                if yes_id:  
+                                    yes_id = yes_id[0]
+                                if no_id:
+                                    no_id = no_id[0]
+
+                                if link_id[0] == "0":
+                                    current_last_uuid.append(str(uuid))
+                                    current_stage = "ongoing_solution"
+                                    store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
+                                    set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                                    return {"message": question_text[0],
+                                            "flag":""}
+
+                                else:
+                                    video_name = link_id[0]
+                                    store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
+                                    set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                                    return {"message": question_text[0] + "\n" + f"{link_url}/videos/{video_name}",
+                                            "flag":""}
+
+                        else:
+                            current_last_uuid.append(str(uuid))
+                            set_stage(stage="start", phone_number=request.from_number, last_uuid=current_last_uuid)
+                            return {"message": "Thank you for contacting us.",
+                                    "flag":""}
+
+                elif get_user_interaction(request.from_number)["stage"] == "live_agent":
+                    if max_similarity > 0.7:
+                        return {"message": "Thank you for contacting us. We will connect you with a live agent shortly.",
+                                "flag":""}
+
+                    else:
+                        return {"message": "Thank you for contacting us.",
+                                "flag":""}
+        
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)

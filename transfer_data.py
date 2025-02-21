@@ -1,16 +1,17 @@
 import pandas as pd
 import pyodbc
-
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 server = os.getenv("SERVER")
 database = os.getenv("DATABASE")
 username = os.getenv("UID") 
 password = os.getenv("PWD")
 
+# Read CSV into DataFrame
+csv_file = "C:/Users/Sagar Agicha/Downloads/data-1739790854152.csv"  # Path to your uploaded file
+df = pd.read_csv(csv_file)
+
+# MS SQL Server connection
 conn = pyodbc.connect(
     "DRIVER={ODBC Driver 17 for SQL Server};"
     f"SERVER={server};"
@@ -20,27 +21,20 @@ conn = pyodbc.connect(
 )
 cursor = conn.cursor()
 
-# cursor.execute("""
-#     INSERT INTO l1_tree (user_id, user_name, phone_number, com_name, mo_name, vector_file, pdf_file)
-#     VALUES (?, ?, ?, ?, ?, ?, ?)
-# """, 2, "Anoop Sir", "9820011282", "Lenovo", "L14", "0", "lenevo-thinkpad-L14.pdf")
+# # Insert data row by row
+# for index, row in df.iterrows():
+#     cursor.execute("""
+#         INSERT INTO decision_tree (dt_id, question_id, level_id, question_text, parent_id, link_id, action_id, tags_list)
+#         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+#     """, row.dt_id, row.question_id, row.level_id, row.question_text, row.parent_id, row.link_id, row.action_id, str(row.tags_list))
 
 
-    # CREATE TABLE l1_tree (
-    #     user_id INT,
-    #     user_name VARCHAR(100),
-    #     phone_number VARCHAR(20),
-    #     com_name VARCHAR(100),
-    #     mo_name VARCHAR(100),
-    #     vector_file VARCHAR(255),
-    #     pdf_file VARCHAR(255)
-    # )
+cursor.execute("SELECT * FROM decision_tree ORDER BY dt_id, question_id ASC")
+datas = cursor.fetchall()
+#print(datas)
 
-cursor.execute("""
-    UPDATE l1_tree
-    SET chunks_file = 'encodings/chunks_9820011282.pkl'
-    WHERE user_id = 2
-""")
+for data in datas:
+    print(data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8] + "\n")
 
 conn.commit()
 cursor.close()
