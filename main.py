@@ -438,10 +438,10 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 if result:
                     username, com_name, mo_name, pdf_file, vector_file, chunks_filename = result
                 
-                if vector_file != '0' and chunks_filename == '0':
+                if vector_file != '0' and chunks_filename != '0':
                     vector_file = vector_file
                     chunks_filename = chunks_filename
-                    set_stage("tech_support", request.from_number, com_name, mo_name, username, pdf_file, vector_file, chunks_filename)
+                    set_stage("tech_support", request.from_number, com_name=com_name, mo_name=mo_name, user_name=username, pdf_file=pdf_file, vector_file=vector_file, chunks_file=chunks_filename)
                     return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
                             "flag":""}
  
@@ -551,7 +551,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             "flag":""}
                 
             elif solution_type == "DT":
-                if get_user_interaction(request.from_number) == {}:
+                if get_user_interaction(request.from_number) == {} or get_user_interaction(request.from_number) is None:
                     if result or question_text or dt_id:
                         current_stage = "start_solution"
                         store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=question_text, dt_id=dt_id, action=action)
@@ -627,6 +627,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=action)
                             current_last_uuid.append(str(uuid))
                             set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                            return {"message":"Sorry It seems I cant help you\n Do you want to connect to an Live Agent?",}
 
                         elif issue and dt_id and action:
                             cursor.execute("SELECT question_text FROM decision_tree WHERE question_id = ? AND dt_id = ?", (action, dt_id))
@@ -671,7 +672,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_last_uuid.append(str(uuid))
                                 clear_stage(request.from_number)
                                 #set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
-                                return {"message": "Thank you for contacting us. We will connect you with a live agent shortly.",
+                                return {"message": "Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
                                         "flag":""}
 
                             elif issue and dt_id and action:
@@ -719,7 +720,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 elif get_user_interaction(request.from_number)["stage"] == "live_agent":
                     if max_similarity > 0.7:
                         clear_stage(request.from_number)
-                        return {"message": "Thank you for contacting us. We will connect you with a live agent shortly.",
+                        return {"message": "Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
                                 "flag":""}
 
                     else:
@@ -740,7 +741,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 no_max_similarity = 1.0 if any(no_word in user_response for no_word in no_variations) else 0.0
                 if max_similarity > 0.7:
                     clear_stage(request.from_number)
-                    return {"message": "Thank you for contacting us. We will connect you with a live agent shortly.",
+                    return {"message": "Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
                             "flag":""}
 
                 else:

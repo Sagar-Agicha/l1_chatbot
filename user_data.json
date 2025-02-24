@@ -1,18 +1,1 @@
-{
-    "+917977587238": {
-        "stage": "tech_support",
-        "com_name": "Lenovo",
-        "mo_name": "L14",
-        "user_name": "Sagar Agicha",
-        "last_time": "0",
-        "pdf_file": "PDFs\\lenevo-thinkpad-L14.pdf",
-        "vector_file": "encodings/encodings_7977587238.npy",
-        "chunks_file": "encodings/chunks_7977587238.pkl",
-        "last_uuid": [
-            "<module 'uuid' from 'c:\\\\Users\\\\Shreya\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\Lib\\\\uuid.py'>",
-            "<module 'uuid' from 'c:\\\\Users\\\\Shreya\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\Lib\\\\uuid.py'>",
-            "<module 'uuid' from 'c:\\\\Users\\\\Shreya\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\Lib\\\\uuid.py'>"
-        ],
-        "solution_type": "DT"
-    }
-}
+{}

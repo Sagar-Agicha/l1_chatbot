@@ -1,11 +1,49 @@
 import pandas as pd
 import pyodbc
 import os
+import datetime
+import pytz
 
 server = os.getenv("SERVER")
 database = os.getenv("DATABASE")
 username = os.getenv("UID") 
 password = os.getenv("PWD")
+
+def store_messages():
+    # Connect to SQL Server
+    conn = pyodbc.connect(
+        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+        f"SERVER={{outsystems1.database.windows.net}};"
+        f"DATABASE={{OUTSYSTEM_API}};"
+        f"UID={{Galaxy}};"
+        f"PWD={{OutSystems@123}}"
+    )
+    cursor = conn.cursor()
+
+    ist_timezone = pytz.timezone("Asia/Kolkata")
+    current_datetime = datetime.now(ist_timezone)
+    cursor.execute(
+        """
+        INSERT INTO WhatsAppMsgs 
+        (id, uuid, session_key, message_text, media_url, media_type, media_mime_type, created_at, remote_phone_number, _2chat_link, channel_phone_number, sent_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """,
+        (
+            id,
+            uuid,
+            session_key,
+            message_text,
+            media_url,
+            media_type,
+            media_mime_type,
+            current_datetime,
+            remote_phone_number,
+            _2chat_link,
+            channel_phone_number,
+            sent_by,
+        ),
+    )
+    conn.commit()
 
 # Read CSV into DataFrame
 csv_file = "C:/Users/Sagar Agicha/Downloads/data-1739790854152.csv"  # Path to your uploaded file
