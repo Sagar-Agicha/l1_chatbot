@@ -75,6 +75,8 @@ guard = Guard().use_many(
 )
 
 class WebhookData(BaseModel):
+    uuid_id: str
+    session_id: str 
     message: str
     from_number: str
 
@@ -412,8 +414,8 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     ist_timezone = pytz.timezone("Asia/Kolkata")
                     current_datetime = dt.datetime.now(ist_timezone)
                     
-                    uuid_id = str(uuid.uuid4())
-                    session_key = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
+                    session_key = request.session_id
                     cursor.execute(
                         """
                         INSERT INTO l1_chat_history 
@@ -433,7 +435,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     )
                     conn.commit()
 
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     cursor.execute(
                         """
                         INSERT INTO l1_chat_history 
@@ -491,7 +493,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     ist_timezone = pytz.timezone("Asia/Kolkata")
                     current_datetime = dt.datetime.now(ist_timezone)
                     
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     #session_key = str(uuid.uuid4())
                     cursor.execute(
                         """
@@ -512,7 +514,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     )
                     conn.commit()
 
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     cursor.execute(
                         """
                         INSERT INTO l1_chat_history 
@@ -551,7 +553,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     ist_timezone = pytz.timezone("Asia/Kolkata")
                     current_datetime = dt.datetime.now(ist_timezone)
                     
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     #session_key = str(uuid.uuid4())
                     cursor.execute(
                         """
@@ -572,7 +574,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     )
                     conn.commit()
 
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     cursor.execute(
                         """
                         INSERT INTO l1_chat_history 
@@ -604,7 +606,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 ist_timezone = pytz.timezone("Asia/Kolkata")
                 current_datetime = dt.datetime.now(ist_timezone)
                 
-                uuid_id = str(uuid.uuid4())
+                uuid_id = request.uuid_id
                 #session_key = str(uuid.uuid4())
                 cursor.execute(
                     """
@@ -625,7 +627,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 )
                 conn.commit()
 
-                uuid_id = str(uuid.uuid4())
+                uuid_id = request.uuid_id
                 cursor.execute(
                     """
                     INSERT INTO l1_chat_history 
@@ -680,7 +682,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 ist_timezone = pytz.timezone("Asia/Kolkata")
                 current_datetime = dt.datetime.now(ist_timezone)
                 
-                uuid_id = str(uuid.uuid4())
+                uuid_id = request.uuid_id
                 #session_key = str(uuid.uuid4())
                 cursor.execute(
                     """
@@ -701,7 +703,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 )
                 conn.commit()
 
-                uuid_id = str(uuid.uuid4())
+                uuid_id = request.uuid_id
                 cursor.execute(
                     """
                     INSERT INTO l1_chat_history 
@@ -730,7 +732,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 ist_timezone = pytz.timezone("Asia/Kolkata")
                 current_datetime = dt.datetime.now(ist_timezone)
                 
-                uuid_id = str(uuid.uuid4())
+                uuid_id = request.uuid_id
                 #session_key = str(uuid.uuid4())
                 cursor.execute(
                     """
@@ -751,7 +753,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 )
                 conn.commit()
 
-                uuid_id = str(uuid.uuid4())
+                uuid_id = request.uuid_id
                 cursor.execute(
                     """
                     INSERT INTO l1_chat_history 
@@ -813,7 +815,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     ist_timezone = pytz.timezone("Asia/Kolkata")
                     current_datetime = dt.datetime.now(ist_timezone)
                     
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     #session_key = str(uuid.uuid4())
                     cursor.execute(
                         """
@@ -834,7 +836,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     )
                     conn.commit()
 
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     cursor.execute(
                         """
                         INSERT INTO l1_chat_history 
@@ -866,7 +868,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         ist_timezone = pytz.timezone("Asia/Kolkata")
                         current_datetime = dt.datetime.now(ist_timezone)
                         
-                        uuid_id = str(uuid.uuid4())
+                        uuid_id = request.uuid_id
                         #session_key = str(uuid.uuid4())
                         cursor.execute(
                             """
@@ -887,7 +889,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         )
                         conn.commit()
 
-                        uuid_id = str(uuid.uuid4())
+                        uuid_id = request.uuid_id
                         cursor.execute(
                             """
                             INSERT INTO l1_chat_history 
@@ -946,7 +948,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 ist_timezone = pytz.timezone("Asia/Kolkata")
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
-                                uuid_id = str(uuid.uuid4())
+                                uuid_id = request.uuid_id
                                 #session_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
@@ -967,7 +969,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 )
                                 conn.commit()
 
-                                uuid_id = str(uuid.uuid4())
+                                uuid_id = request.uuid_id
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -995,7 +997,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 ist_timezone = pytz.timezone("Asia/Kolkata")
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
-                                uuid_id = str(uuid.uuid4())
+                                uuid_id = request.uuid_id
                                 #session_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
@@ -1016,7 +1018,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 )
                                 conn.commit()
 
-                                uuid_id = str(uuid.uuid4())
+                                uuid_id = request.uuid_id
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1065,7 +1067,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             ist_timezone = pytz.timezone("Asia/Kolkata")
                             current_datetime = dt.datetime.now(ist_timezone)
                             
-                            uuid_id = str(uuid.uuid4())
+                            uuid_id = request.uuid_id
                             #session_key = str(uuid.uuid4())
                             cursor.execute(
                                 """
@@ -1086,7 +1088,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             )
                             conn.commit()
 
-                            uuid_id = str(uuid.uuid4())
+                            uuid_id = request.uuid_id
                             cursor.execute(
                                 """
                                 INSERT INTO l1_chat_history 
@@ -1133,7 +1135,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 ist_timezone = pytz.timezone("Asia/Kolkata")
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
-                                uuid_id = str(uuid.uuid4())
+                                uuid_id = request.uuid_id
                                 #session_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
@@ -1154,7 +1156,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 )
                                 conn.commit()
 
-                                uuid_id = str(uuid.uuid4())
+                                uuid_id = request.uuid_id
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1183,7 +1185,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 ist_timezone = pytz.timezone("Asia/Kolkata")
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
-                                uuid_id = str(uuid.uuid4())
+                                uuid_id = request.uuid_id
                                 #ession_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
@@ -1204,7 +1206,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 )
                                 conn.commit()
 
-                                uuid_id = str(uuid.uuid4())
+                                uuid_id = request.uuid_id
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1239,7 +1241,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 ist_timezone = pytz.timezone("Asia/Kolkata")
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
-                                uuid_id = str(uuid.uuid4())
+                                uuid_id = request.uuid_id
                                 #ession_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
@@ -1260,7 +1262,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 )
                                 conn.commit()
 
-                                uuid_id = str(uuid.uuid4())
+                                uuid_id = request.uuid_id
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1310,7 +1312,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                     ist_timezone = pytz.timezone("Asia/Kolkata")
                                     current_datetime = dt.datetime.now(ist_timezone)
                                     
-                                    uuid_id = str(uuid.uuid4())
+                                    uuid_id = request.uuid_id
                                     #ession_key = str(uuid.uuid4())
                                     cursor.execute(
                                         """
@@ -1331,7 +1333,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                     )
                                     conn.commit()
 
-                                    uuid_id = str(uuid.uuid4())
+                                    uuid_id = request.uuid_id
                                     cursor.execute(
                                         """
                                         INSERT INTO l1_chat_history 
@@ -1360,7 +1362,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                     ist_timezone = pytz.timezone("Asia/Kolkata")
                                     current_datetime = dt.datetime.now(ist_timezone)
                                     
-                                    uuid_id = str(uuid.uuid4())
+                                    uuid_id = request.uuid_id
                                     #ession_key = str(uuid.uuid4())
                                     cursor.execute(
                                         """
@@ -1381,7 +1383,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                     )
                                     conn.commit()
 
-                                    uuid_id = str(uuid.uuid4())
+                                    uuid_id = request.uuid_id
                                     cursor.execute(
                                         """
                                         INSERT INTO l1_chat_history 
@@ -1410,7 +1412,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             ist_timezone = pytz.timezone("Asia/Kolkata")
                             current_datetime = dt.datetime.now(ist_timezone)
                             
-                            uuid_id = str(uuid.uuid4())
+                            uuid_id = request.uuid_id
                             #ession_key = str(uuid.uuid4())
                             cursor.execute(
                                 """
@@ -1431,7 +1433,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             )
                             conn.commit()
 
-                            uuid_id = str(uuid.uuid4())
+                            uuid_id = request.uuid_id
                             cursor.execute(
                                 """
                                 INSERT INTO l1_chat_history 
@@ -1460,7 +1462,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         ist_timezone = pytz.timezone("Asia/Kolkata")
                         current_datetime = dt.datetime.now(ist_timezone)
                         
-                        uuid_id = str(uuid.uuid4())
+                        uuid_id = request.uuid_id
                         #ession_key = str(uuid.uuid4())
                         cursor.execute(
                             """
@@ -1481,7 +1483,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         )
                         conn.commit()
 
-                        uuid_id = str(uuid.uuid4())
+                        uuid_id = request.uuid_id
                         cursor.execute(
                             """
                             INSERT INTO l1_chat_history 
@@ -1508,7 +1510,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         ist_timezone = pytz.timezone("Asia/Kolkata")
                         current_datetime = dt.datetime.now(ist_timezone)
                         
-                        uuid_id = str(uuid.uuid4())
+                        uuid_id = request.uuid_id
                         #ession_key = str(uuid.uuid4())
                         cursor.execute(
                             """
@@ -1529,7 +1531,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         )
                         conn.commit()
 
-                        uuid_id = str(uuid.uuid4())
+                        uuid_id = request.uuid_id
                         cursor.execute(
                             """
                             INSERT INTO l1_chat_history 
@@ -1556,7 +1558,8 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 user_response = request.message.lower()
                 yes_variations = ["yes", "yeah", "yep", "sure", "correct", "right", "ok", "okay", "perfect", "haa"]
                 no_variations = ["no", "not", "nope", "nah", "wrong", "incorrect", "nahi", "na"]
-                
+                session_key = get_stage(request.from_number).get("session_key", "")
+
                 # Direct string matching instead of embeddings
                 user_response = user_response.strip().lower()
                 
@@ -1567,7 +1570,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     ist_timezone = pytz.timezone("Asia/Kolkata")
                     current_datetime = dt.datetime.now(ist_timezone)
                     
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     #ession_key = str(uuid.uuid4())
                     cursor.execute(
                         """
@@ -1588,7 +1591,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     )
                     conn.commit()
 
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     cursor.execute(
                         """
                         INSERT INTO l1_chat_history 
@@ -1615,7 +1618,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     ist_timezone = pytz.timezone("Asia/Kolkata")
                     current_datetime = dt.datetime.now(ist_timezone)
                     
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     #ession_key = str(uuid.uuid4())
                     cursor.execute(
                         """
@@ -1636,7 +1639,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     )
                     conn.commit()
 
-                    uuid_id = str(uuid.uuid4())
+                    uuid_id = request.uuid_id
                     cursor.execute(
                         """
                         INSERT INTO l1_chat_history 

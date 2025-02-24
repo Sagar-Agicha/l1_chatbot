@@ -315,3 +315,20 @@
 2025-02-24 14:45:12,030 - INFO - Processing request from 7977587238
 2025-02-24 14:45:20,397 - INFO - Processing request from 7977587238
 2025-02-24 14:45:31,921 - INFO - Processing request from 7977587238
+2025-02-24 17:54:08,072 - INFO - Use pytorch device_name: cpu
+2025-02-24 17:54:08,072 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-24 18:06:43,855 - INFO - Processing request from 7977587238
+2025-02-24 18:10:41,880 - INFO - Processing request from 7977587238
+2025-02-24 18:11:07,373 - INFO - Processing request from 7977587238
+2025-02-24 18:11:10,986 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-24 18:11:21,468 - INFO - Processing request from 7977587238
+2025-02-24 18:11:24,192 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-24 18:11:30,743 - INFO - Processing request from 7977587238
+2025-02-24 18:11:33,315 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-24 18:11:39,748 - INFO - Processing request from 7977587238
+2025-02-24 18:11:47,298 - INFO - Processing request from 7977587238
+2025-02-24 18:11:47,968 - INFO - Processing request from 7977587238
+2025-02-24 18:11:48,677 - INFO - Processing request from 7977587238
+2025-02-24 18:14:05,547 - INFO - Use pytorch device_name: cpu
+2025-02-24 18:14:05,547 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-24 18:14:15,259 - INFO - Processing request from 7977587238
