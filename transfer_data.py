@@ -1,8 +1,9 @@
 import pandas as pd
 import pyodbc
 import os
-import datetime
+import datetime as dt
 import pytz
+import uuid
 
 server = os.getenv("SERVER")
 database = os.getenv("DATABASE")
@@ -45,11 +46,6 @@ def store_messages():
     )
     conn.commit()
 
-# Read CSV into DataFrame
-csv_file = "C:/Users/Sagar Agicha/Downloads/data-1739790854152.csv"  # Path to your uploaded file
-df = pd.read_csv(csv_file)
-
-# MS SQL Server connection
 conn = pyodbc.connect(
     "DRIVER={ODBC Driver 17 for SQL Server};"
     f"SERVER={server};"
@@ -59,22 +55,29 @@ conn = pyodbc.connect(
 )
 cursor = conn.cursor()
 
-# # Insert data row by row
-# for index, row in df.iterrows():
-#     cursor.execute("""
-#         INSERT INTO decision_tree (dt_id, question_id, level_id, question_text, parent_id, link_id, action_id, tags_list)
-#         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-#     """, row.dt_id, row.question_id, row.level_id, row.question_text, row.parent_id, row.link_id, row.action_id, str(row.tags_list))
-
-
-# cursor.execute("SELECT * FROM decision_tree ORDER BY dt_id, question_id ASC")
-# datas = cursor.fetchall()
-# #print(datas)
-
-# for data in datas:
-#     print(data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8] + "\n")
-
-cursor.execute("UPDATE ")
+ist_timezone = pytz.timezone("Asia/Kolkata")
+current_datetime = dt.datetime.now(ist_timezone)
+id = str(uuid.uuid4())
+uuid_id = str(uuid.uuid4())
+session_key = str(uuid.uuid4())
+cursor.execute(
+    """
+    INSERT INTO l1_chat_history 
+    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+""",
+    (
+        uuid_id,
+        session_key,
+        "msg",
+        "res",
+        "phne",
+        "91+9322261280",
+        str(current_datetime),
+        "user",
+    ),
+)
+conn.commit()
 
 conn.commit()
 cursor.close()

@@ -20,6 +20,7 @@ import openai
 import logging
 import pickle
 from typing import Dict
+import pytz
 
 processing_store: Dict[str, Dict] = {}
 
@@ -116,7 +117,7 @@ def check_text_content(text):
             'message': "We encountered an issue processing your message. Please try again with different wording."
         }
 
-def set_stage(stage: str, phone_number: str, com_name: str = '0', mo_name: str = '0', user_name: str = '0', pdf_file: str = '0', vector_file: str = '0', conversation_history: list = [], chunks_file: str = '0', last_uuid: list = [], solution_type: str = '0', rag_no: int = 0, last_time: str = '0'):
+def set_stage(stage: str, phone_number: str, com_name: str = '0', mo_name: str = '0', user_name: str = '0', pdf_file: str = '0', vector_file: str = '0', conversation_history: list = [], chunks_file: str = '0', last_uuid: list = [], solution_type: str = '0', rag_no: int = 0, last_time: str = '0', session_key: str = '0'):
     try:
         with open("user_data.json", "r") as file:
             data = json.load(file)
@@ -151,6 +152,8 @@ def set_stage(stage: str, phone_number: str, com_name: str = '0', mo_name: str =
         data[phone_number]["rag_no"] = rag_no
     if last_time != 0:
         data[phone_number]["last_time"] = last_time
+    if session_key != '0':
+        data[phone_number]["session_key"] = session_key
 
     with open("user_data.json", "w") as file:
         json.dump(data, file, indent=4)
@@ -406,9 +409,52 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 result = cursor.fetchone()
                 if result:
                     username, com_name, mo_name = result
-                    set_stage("data_found", request.from_number, com_name, mo_name, username)
+                    ist_timezone = pytz.timezone("Asia/Kolkata")
+                    current_datetime = dt.datetime.now(ist_timezone)
+                    
+                    uuid_id = str(uuid.uuid4())
+                    session_key = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            request.message,
+                            "",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "user",
+                        ),
+                    )
+                    conn.commit()
+
+                    uuid_id = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            "",
+                            f"Welcome {username}\nCan you please confirm your this {com_name} {mo_name} is your Model Name?",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "bot",
+                        ),
+                    )
+                    conn.commit()
+                    set_stage("data_found", request.from_number, com_name, mo_name, username, session_key=session_key)
                     return {"message": f"Welcome {username}\nCan you please confirm your this {com_name} {mo_name} is your Model Name?",
-                            "flag":""}
+                            "flag":""}              
                 else:
                     set_stage("no_data", request.from_number)
                     return {"message": "No user data found do you enter a new model name?",
@@ -418,6 +464,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
             user_response = request.message.lower()
             yes_variations = ["yes", "yeah", "yep", "sure", "correct", "right", "ok", "okay", "perfect"]
             no_variations = ["no", "not", "nope", "nah", "wrong", "incorrect"]
+            session_key = get_stage(request.from_number).get("session_key", "")
             
             # Direct string matching instead of embeddings
             user_response = user_response.strip().lower()
@@ -441,6 +488,49 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 if vector_file != '0' and chunks_filename != '0':
                     vector_file = vector_file
                     chunks_filename = chunks_filename
+                    ist_timezone = pytz.timezone("Asia/Kolkata")
+                    current_datetime = dt.datetime.now(ist_timezone)
+                    
+                    uuid_id = str(uuid.uuid4())
+                    #session_key = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            request.message,
+                            "",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "user",
+                        ),
+                    )
+                    conn.commit()
+
+                    uuid_id = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            "",
+                            "Great! I'll use specialized support for your model. What seems to be the problem?",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "bot",
+                        ),
+                    )
+                    conn.commit()
                     set_stage("tech_support", request.from_number, com_name=com_name, mo_name=mo_name, user_name=username, pdf_file=pdf_file, vector_file=vector_file, chunks_file=chunks_filename)
                     return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
                             "flag":""}
@@ -457,6 +547,50 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         mo_name=mo_name,
                         username=username
                     )
+
+                    ist_timezone = pytz.timezone("Asia/Kolkata")
+                    current_datetime = dt.datetime.now(ist_timezone)
+                    
+                    uuid_id = str(uuid.uuid4())
+                    #session_key = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            request.message,
+                            "",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "user",
+                        ),
+                    )
+                    conn.commit()
+
+                    uuid_id = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            "",
+                            "Great! I'll use specialized support for your model. What seems to be the problem?",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "bot",
+                        ),
+                    )
+                    conn.commit()
                     return {"message": "Great! I'll use specialized support for your model. What seems to be the problem?",
                             "flag":"Yes"}
  
@@ -467,6 +601,49 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
             else:
                 set_stage("data_found", request.from_number)
+                ist_timezone = pytz.timezone("Asia/Kolkata")
+                current_datetime = dt.datetime.now(ist_timezone)
+                
+                uuid_id = str(uuid.uuid4())
+                #session_key = str(uuid.uuid4())
+                cursor.execute(
+                    """
+                    INSERT INTO l1_chat_history 
+                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        uuid_id,
+                        session_key,
+                        request.message,
+                        "",
+                        phone_number,
+                        "91+9322261280",
+                        str(current_datetime),
+                        "user",
+                    ),
+                )
+                conn.commit()
+
+                uuid_id = str(uuid.uuid4())
+                cursor.execute(
+                    """
+                    INSERT INTO l1_chat_history 
+                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        uuid_id,
+                        session_key,
+                        "",
+                        "Please Say Yes or No",
+                        phone_number,
+                        "91+9322261280",
+                        str(current_datetime),
+                        "bot",
+                    ),
+                )
+                conn.commit()
                 return {"message": f"Please Say Yes or No",
                         "flag":""}
 
@@ -488,6 +665,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
             user_response = request.message.lower()
             yes_variations = ["yes", "yeah", "yep", "sure", "correct", "right", "ok", "okay", "perfect", "haa"]
             no_variations = ["no", "not", "nope", "nah", "wrong", "incorrect", "nahi", "na"]
+            session_key = get_stage(request.from_number).get("session_key", "")
             
             # Direct string matching instead of embeddings
             user_response = user_response.strip().lower()
@@ -499,13 +677,99 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
             if max_similarity > 0.7 and solution_type != "DT":
                 current_last_uuid.append(str(uuid))
                 #set_stage(stage="start", phone_number=request.from_number, last_uuid=current_last_uuid)
+                ist_timezone = pytz.timezone("Asia/Kolkata")
+                current_datetime = dt.datetime.now(ist_timezone)
+                
+                uuid_id = str(uuid.uuid4())
+                #session_key = str(uuid.uuid4())
+                cursor.execute(
+                    """
+                    INSERT INTO l1_chat_history 
+                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        uuid_id,
+                        session_key,
+                        request.message,
+                        "",
+                        phone_number,
+                        "91+9322261280",
+                        str(current_datetime),
+                        "user",
+                    ),
+                )
+                conn.commit()
+
+                uuid_id = str(uuid.uuid4())
+                cursor.execute(
+                    """
+                    INSERT INTO l1_chat_history 
+                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        uuid_id,
+                        session_key,
+                        "",
+                        "Thank you for contacting us.",
+                        phone_number,
+                        "91+9322261280",
+                        str(current_datetime),
+                        "bot",
+                    ),
+                )
+                conn.commit()
                 clear_stage(request.from_number)
                 return {"message": "Thank you for contacting us.",
                         "flag":""}
 
             elif rag_no == 3:
                 set_stage(stage="live_agent", phone_number=request.from_number)
-                current_last_uuid.append(str(uuid))
+                current_last_uuid.append(str(uuid))                    
+                ist_timezone = pytz.timezone("Asia/Kolkata")
+                current_datetime = dt.datetime.now(ist_timezone)
+                
+                uuid_id = str(uuid.uuid4())
+                #session_key = str(uuid.uuid4())
+                cursor.execute(
+                    """
+                    INSERT INTO l1_chat_history 
+                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        uuid_id,
+                        session_key,
+                        request.message,
+                        "",
+                        phone_number,
+                        "91+9322261280",
+                        str(current_datetime),
+                        "user",
+                    ),
+                )
+                conn.commit()
+
+                uuid_id = str(uuid.uuid4())
+                cursor.execute(
+                    """
+                    INSERT INTO l1_chat_history 
+                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        uuid_id,
+                        session_key,
+                        "",
+                        "Do you want to connect with a live agent?",
+                        phone_number,
+                        "91+9322261280",
+                        str(current_datetime),
+                        "bot",
+                    ),
+                )
+                conn.commit()
                 return {"message": "Do you want to connect with a live agent?",
                         "flag":""}
                 
@@ -546,6 +810,49 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     conversation_history.append({"role": "assistant", "content": response})
                     rag_no += 1
                     solution_type = "0"
+                    ist_timezone = pytz.timezone("Asia/Kolkata")
+                    current_datetime = dt.datetime.now(ist_timezone)
+                    
+                    uuid_id = str(uuid.uuid4())
+                    #session_key = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            request.message,
+                            "",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "user",
+                        ),
+                    )
+                    conn.commit()
+
+                    uuid_id = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            "",
+                            f"{response} \nIs it Working?",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "bot",
+                        ),
+                    )
+                    conn.commit()
                     set_stage("tech_support", phone_number=request.from_number, pdf_file=pdf_file, vector_file=vector_file, conversation_history=conversation_history, solution_type=solution_type, rag_no=rag_no)
                     return {"message": f"{response} \nIs it Working?",         
                             "flag":""}
@@ -556,6 +863,49 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         current_stage = "start_solution"
                         store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=question_text, dt_id=dt_id, action=action)
                         set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                        ist_timezone = pytz.timezone("Asia/Kolkata")
+                        current_datetime = dt.datetime.now(ist_timezone)
+                        
+                        uuid_id = str(uuid.uuid4())
+                        #session_key = str(uuid.uuid4())
+                        cursor.execute(
+                            """
+                            INSERT INTO l1_chat_history 
+                            (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                            (
+                                uuid_id,
+                                session_key,
+                                request.message,
+                                "",
+                                phone_number,
+                                "91+9322261280",
+                                str(current_datetime),
+                                "user",
+                            ),
+                        )
+                        conn.commit()
+
+                        uuid_id = str(uuid.uuid4())
+                        cursor.execute(
+                            """
+                            INSERT INTO l1_chat_history 
+                            (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                            (
+                                uuid_id,
+                                session_key,
+                                "",
+                                f"{question_text} \nCan you confirm this is related to your issue?",
+                                phone_number,
+                                "91+9322261280",
+                                str(current_datetime),
+                                "bot",
+                            ),
+                        )
+                        conn.commit()
                         return {"message": f"{question_text} \nCan you confirm this is related to your issue?",         
                                 "flag":""}
                     else:
@@ -593,12 +943,98 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=action, yes_id=yes_id)
                             if link_id[0] == "0":
                                 current_last_uuid.append(str(uuid))
+                                ist_timezone = pytz.timezone("Asia/Kolkata")
+                                current_datetime = dt.datetime.now(ist_timezone)
+                                
+                                uuid_id = str(uuid.uuid4())
+                                #session_key = str(uuid.uuid4())
+                                cursor.execute(
+                                    """
+                                    INSERT INTO l1_chat_history 
+                                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        uuid_id,
+                                        session_key,
+                                        request.message,
+                                        "",
+                                        phone_number,
+                                        "91+9322261280",
+                                        str(current_datetime),
+                                        "user",
+                                    ),
+                                )
+                                conn.commit()
+
+                                uuid_id = str(uuid.uuid4())
+                                cursor.execute(
+                                    """
+                                    INSERT INTO l1_chat_history 
+                                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        uuid_id,
+                                        session_key,
+                                        "",
+                                        f"{question_text[0]}",
+                                        phone_number,
+                                        "91+9322261280",
+                                        str(current_datetime),
+                                        "bot",
+                                    ),
+                                )
+                                conn.commit()
                                 set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": question_text[0],
                                         "flag":""}
 
                             else:
                                 video_name = link_id[0]
+                                ist_timezone = pytz.timezone("Asia/Kolkata")
+                                current_datetime = dt.datetime.now(ist_timezone)
+                                
+                                uuid_id = str(uuid.uuid4())
+                                #session_key = str(uuid.uuid4())
+                                cursor.execute(
+                                    """
+                                    INSERT INTO l1_chat_history 
+                                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        uuid_id,
+                                        session_key,
+                                        request.message,
+                                        "",
+                                        phone_number,
+                                        "91+9322261280",
+                                        str(current_datetime),
+                                        "user",
+                                    ),
+                                )
+                                conn.commit()
+
+                                uuid_id = str(uuid.uuid4())
+                                cursor.execute(
+                                    """
+                                    INSERT INTO l1_chat_history 
+                                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        uuid_id,
+                                        session_key,
+                                        "",
+                                        f"{question_text[0]} \n{link_url}/videos/{video_name}",
+                                        phone_number,
+                                        "91+9322261280",
+                                        str(current_datetime),
+                                        "bot",
+                                    ),
+                                )
+                                conn.commit()
                                 set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": question_text[0] + "\n" + f"{link_url}/videos/{video_name}",
                                         "flag":""}
@@ -626,6 +1062,49 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             current_stage = "live_agent"
                             store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=action)
                             current_last_uuid.append(str(uuid))
+                            ist_timezone = pytz.timezone("Asia/Kolkata")
+                            current_datetime = dt.datetime.now(ist_timezone)
+                            
+                            uuid_id = str(uuid.uuid4())
+                            #session_key = str(uuid.uuid4())
+                            cursor.execute(
+                                """
+                                INSERT INTO l1_chat_history 
+                                (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                                (
+                                    uuid_id,
+                                    session_key,
+                                    request.message,
+                                    "",
+                                    phone_number,
+                                    "91+9322261280",
+                                    str(current_datetime),
+                                    "user",
+                                ),
+                            )
+                            conn.commit()
+
+                            uuid_id = str(uuid.uuid4())
+                            cursor.execute(
+                                """
+                                INSERT INTO l1_chat_history 
+                                (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                                (
+                                    uuid_id,
+                                    session_key,
+                                    "",
+                                    f"Sorry It seems I cant help you\n Do you want to connect to an Live Agent?",
+                                    phone_number,
+                                    "91+9322261280",
+                                    str(current_datetime),
+                                    "bot",
+                                ),
+                            )
+                            conn.commit()
                             set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                             return {"message":"Sorry It seems I cant help you\n Do you want to connect to an Live Agent?",}
 
@@ -651,6 +1130,49 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_last_uuid.append(str(uuid))
                                 current_stage = "ongoing_solution"
                                 store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
+                                ist_timezone = pytz.timezone("Asia/Kolkata")
+                                current_datetime = dt.datetime.now(ist_timezone)
+                                
+                                uuid_id = str(uuid.uuid4())
+                                #session_key = str(uuid.uuid4())
+                                cursor.execute(
+                                    """
+                                    INSERT INTO l1_chat_history 
+                                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        uuid_id,
+                                        session_key,
+                                        request.message,
+                                        "",
+                                        phone_number,
+                                        "91+9322261280",
+                                        str(current_datetime),
+                                        "user",
+                                    ),
+                                )
+                                conn.commit()
+
+                                uuid_id = str(uuid.uuid4())
+                                cursor.execute(
+                                    """
+                                    INSERT INTO l1_chat_history 
+                                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        uuid_id,
+                                        session_key,
+                                        "",
+                                        f"{question_text[0]}",
+                                        phone_number,
+                                        "91+9322261280",
+                                        str(current_datetime),
+                                        "bot",
+                                    ),
+                                )
+                                conn.commit()
                                 set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": question_text[0],
                                         "flag":""}
@@ -658,6 +1180,49 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 video_name = link_id[0]
                                 current_stage = "ongoing_solution"
                                 store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
+                                ist_timezone = pytz.timezone("Asia/Kolkata")
+                                current_datetime = dt.datetime.now(ist_timezone)
+                                
+                                uuid_id = str(uuid.uuid4())
+                                #ession_key = str(uuid.uuid4())
+                                cursor.execute(
+                                    """
+                                    INSERT INTO l1_chat_history 
+                                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        uuid_id,
+                                        session_key,
+                                        request.message,
+                                        "",
+                                        phone_number,
+                                        "91+9322261280",
+                                        str(current_datetime),
+                                        "user",
+                                    ),
+                                )
+                                conn.commit()
+
+                                uuid_id = str(uuid.uuid4())
+                                cursor.execute(
+                                    """
+                                    INSERT INTO l1_chat_history 
+                                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        uuid_id,
+                                        session_key,
+                                        "",
+                                        f"{question_text[0]} \n{link_url}/videos/{video_name}",
+                                        phone_number, 
+                                        "91+9322261280",
+                                        str(current_datetime),
+                                        "bot",
+                                    ),
+                                )
+                                conn.commit()
                                 set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": question_text[0] + "\n" + f"{link_url}/videos/{video_name}",
                                         "flag":""}
@@ -670,6 +1235,50 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_stage = "live_agent"
                                 store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=action, yes_id=yes_id)
                                 current_last_uuid.append(str(uuid))
+                                clear_stage(request.from_number)
+                                ist_timezone = pytz.timezone("Asia/Kolkata")
+                                current_datetime = dt.datetime.now(ist_timezone)
+                                
+                                uuid_id = str(uuid.uuid4())
+                                #ession_key = str(uuid.uuid4())
+                                cursor.execute(
+                                    """
+                                    INSERT INTO l1_chat_history 
+                                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        uuid_id,
+                                        session_key,
+                                        request.message,
+                                        "",
+                                        phone_number,
+                                        "91+9322261280",
+                                        str(current_datetime),
+                                        "user",
+                                    ),
+                                )
+                                conn.commit()
+
+                                uuid_id = str(uuid.uuid4())
+                                cursor.execute(
+                                    """
+                                    INSERT INTO l1_chat_history 
+                                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        uuid_id,
+                                        session_key,
+                                        "",
+                                        f"Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
+                                        phone_number,
+                                        "91+9322261280",
+                                        str(current_datetime),
+                                        "bot",
+                                    ),
+                                )
+                                conn.commit()
                                 clear_stage(request.from_number)
                                 #set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": "Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
@@ -698,6 +1307,49 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 if link_id[0] == "0":
                                     current_last_uuid.append(str(uuid))
                                     current_stage = "ongoing_solution"
+                                    ist_timezone = pytz.timezone("Asia/Kolkata")
+                                    current_datetime = dt.datetime.now(ist_timezone)
+                                    
+                                    uuid_id = str(uuid.uuid4())
+                                    #ession_key = str(uuid.uuid4())
+                                    cursor.execute(
+                                        """
+                                        INSERT INTO l1_chat_history 
+                                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    """,
+                                        (
+                                            uuid_id,
+                                            session_key,
+                                            request.message,
+                                            "",
+                                            phone_number,
+                                            "91+9322261280",
+                                            str(current_datetime),
+                                            "user",
+                                        ),
+                                    )
+                                    conn.commit()
+
+                                    uuid_id = str(uuid.uuid4())
+                                    cursor.execute(
+                                        """
+                                        INSERT INTO l1_chat_history 
+                                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    """,
+                                        (
+                                            uuid_id,
+                                            session_key,
+                                            "",
+                                            f"{question_text[0]}",
+                                            phone_number,
+                                            "91+9322261280",
+                                            str(current_datetime),
+                                            "bot",
+                                        ),
+                                    )
+                                    conn.commit()
                                     store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
                                     set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                     return {"message": question_text[0],
@@ -705,6 +1357,49 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
                                 else:
                                     video_name = link_id[0]
+                                    ist_timezone = pytz.timezone("Asia/Kolkata")
+                                    current_datetime = dt.datetime.now(ist_timezone)
+                                    
+                                    uuid_id = str(uuid.uuid4())
+                                    #ession_key = str(uuid.uuid4())
+                                    cursor.execute(
+                                        """
+                                        INSERT INTO l1_chat_history 
+                                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    """,
+                                        (
+                                            uuid_id,
+                                            session_key,
+                                            request.message,
+                                            "",
+                                            phone_number,
+                                            "91+9322261280",
+                                            str(current_datetime),
+                                            "user",
+                                        ),
+                                    )
+                                    conn.commit()
+
+                                    uuid_id = str(uuid.uuid4())
+                                    cursor.execute(
+                                        """
+                                        INSERT INTO l1_chat_history 
+                                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    """,
+                                        (
+                                            uuid_id,
+                                            session_key,
+                                            "",
+                                            f"{question_text[0]} \n{link_url}/videos/{video_name}",
+                                            phone_number,
+                                            "91+9322261280",
+                                            str(current_datetime),
+                                            "bot",
+                                        ),
+                                    )
+                                    conn.commit()
                                     store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
                                     set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                     return {"message": question_text[0] + "\n" + f"{link_url}/videos/{video_name}",
@@ -712,6 +1407,49 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
                         else:
                             current_last_uuid.append(str(uuid))
+                            ist_timezone = pytz.timezone("Asia/Kolkata")
+                            current_datetime = dt.datetime.now(ist_timezone)
+                            
+                            uuid_id = str(uuid.uuid4())
+                            #ession_key = str(uuid.uuid4())
+                            cursor.execute(
+                                """
+                                INSERT INTO l1_chat_history 
+                                (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                                (
+                                    uuid_id,
+                                    session_key,
+                                    request.message,
+                                    "",
+                                    phone_number,
+                                    "91+9322261280",
+                                    str(current_datetime),
+                                    "user",
+                                ),
+                            )
+                            conn.commit()
+
+                            uuid_id = str(uuid.uuid4())
+                            cursor.execute(
+                                """
+                                INSERT INTO l1_chat_history 
+                                (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                                (
+                                    uuid_id,
+                                    session_key,
+                                    "",
+                                    f"Thank you for contacting us.",
+                                    phone_number,
+                                    "91+9322261280",
+                                    str(current_datetime),
+                                    "bot",
+                                ),
+                            )
+                            conn.commit()
                             #set_stage(stage="start", phone_number=request.from_number, last_uuid=current_last_uuid)
                             clear_stage(request.from_number)
                             return {"message": "Thank you for contacting us.",
@@ -719,11 +1457,97 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
                 elif get_user_interaction(request.from_number)["stage"] == "live_agent":
                     if max_similarity > 0.7:
+                        ist_timezone = pytz.timezone("Asia/Kolkata")
+                        current_datetime = dt.datetime.now(ist_timezone)
+                        
+                        uuid_id = str(uuid.uuid4())
+                        #ession_key = str(uuid.uuid4())
+                        cursor.execute(
+                            """
+                            INSERT INTO l1_chat_history 
+                            (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                            (
+                                uuid_id,
+                                session_key,
+                                request.message,
+                                "",
+                                phone_number,
+                                "91+9322261280",
+                                str(current_datetime),
+                                "user",
+                            ),
+                        )
+                        conn.commit()
+
+                        uuid_id = str(uuid.uuid4())
+                        cursor.execute(
+                            """
+                            INSERT INTO l1_chat_history 
+                            (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                            (
+                                uuid_id,
+                                session_key,
+                                "",
+                                f"Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
+                                phone_number,
+                                "91+9322261280",
+                                str(current_datetime),
+                                "bot",
+                            ),
+                        )
+                        conn.commit()
                         clear_stage(request.from_number)
                         return {"message": "Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
                                 "flag":""}
 
                     else:
+                        ist_timezone = pytz.timezone("Asia/Kolkata")
+                        current_datetime = dt.datetime.now(ist_timezone)
+                        
+                        uuid_id = str(uuid.uuid4())
+                        #ession_key = str(uuid.uuid4())
+                        cursor.execute(
+                            """
+                            INSERT INTO l1_chat_history 
+                            (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                            (
+                                uuid_id,
+                                session_key,
+                                request.message,
+                                "",
+                                phone_number,
+                                "91+9322261280",
+                                str(current_datetime),
+                                "user",
+                            ),
+                        )
+                        conn.commit()
+
+                        uuid_id = str(uuid.uuid4())
+                        cursor.execute(
+                            """
+                            INSERT INTO l1_chat_history 
+                            (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                            (
+                                uuid_id,
+                                session_key,
+                                "",
+                                f"Thank you for contacting us.",
+                                phone_number,
+                                "91+9322261280",
+                                str(current_datetime),
+                                "bot",
+                            ),
+                        )
+                        conn.commit()
                         clear_stage(request.from_number)
                         return {"message": "Thank you for contacting us.",
                                 "flag":""}
@@ -740,11 +1564,97 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 max_similarity = 1.0 if any(yes_word in user_response for yes_word in yes_variations) else 0.0
                 no_max_similarity = 1.0 if any(no_word in user_response for no_word in no_variations) else 0.0
                 if max_similarity > 0.7:
+                    ist_timezone = pytz.timezone("Asia/Kolkata")
+                    current_datetime = dt.datetime.now(ist_timezone)
+                    
+                    uuid_id = str(uuid.uuid4())
+                    #ession_key = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            request.message,
+                            "",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "user",
+                        ),
+                    )
+                    conn.commit()
+
+                    uuid_id = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            "",
+                            f"Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "bot",
+                        ),
+                    )
+                    conn.commit()
                     clear_stage(request.from_number)
                     return {"message": "Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
                             "flag":""}
 
                 else:
+                    ist_timezone = pytz.timezone("Asia/Kolkata")
+                    current_datetime = dt.datetime.now(ist_timezone)
+                    
+                    uuid_id = str(uuid.uuid4())
+                    #ession_key = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            request.message,
+                            "",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "user",
+                        ),
+                    )
+                    conn.commit()
+
+                    uuid_id = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            "",
+                            f"Thank you for contacting us.",
+                            phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "bot",
+                        ),
+                    )
+                    conn.commit()
                     clear_stage(request.from_number)
                     return {"message": "Thank you for contacting us.",
                             "flag":""}
