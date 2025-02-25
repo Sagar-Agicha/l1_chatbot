@@ -6,7 +6,7 @@ from guardrails.hub import ToxicLanguage, ProfanityFree
 import history_samba_continuous_function as hm
 import rag_samba_continuous_function as rag
 import uuid
-import csv
+import requests
 import pandas as pd
 import numpy as np
 from front_function import find_make_and_model
@@ -366,6 +366,9 @@ def generate_response(message: str, conversation_history: list, chunks_file: str
             processing_store[key]["result"] = response + "\nIs it Working?"
         else:
             logging.error(f"Key {key} not found in processing_store")
+
+def data_store(issue : str, conversation_history: str, remote_phone : str, uuid_id : str, session_id):
+    print("")
 
 @app.post("/get_result")
 async def get_result(request:get_results):
