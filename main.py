@@ -370,14 +370,16 @@ def generate_response(message: str, conversation_history: list, chunks_file: str
 def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
     # Fetch conversation history from database
     cursor.execute("""
-        SELECT message_text, response, sent_by
-        FROM l1_chat_history 
+        SELECT CAST(message_text AS NVARCHAR(MAX)) as message_text,
+               CAST(response AS NVARCHAR(MAX)) as response,
+               sent_by
+        FROM l1_chat_history
         WHERE session_key = ?
         ORDER BY created_at ASC
     """, (session_id,))
-    
+   
     chat_records = cursor.fetchall()
-    
+   
     # Format conversation history
     formatted_history = ""
     for msg_text, response, sent_by in chat_records:
@@ -385,17 +387,47 @@ def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
             formatted_history += f"{msg_text}               \n"
         if sent_by == "bot" and response:
             formatted_history += f"               {response}\n"
-    
-    # Make API call with formatted history
-    response = requests.post('http://api.goapl.com/ticket/store-message', 
-        json={
-            'issue': issue,
-            'conversation_history': formatted_history,
-            'remote_phone': remote_phone,
-            'uuid_id': uuid_id,
-            'session_id': session_id
-        })
-    
+   
+    conn = pyodbc.connect(
+        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+        f"SERVER={{outsystems1.database.windows.net}};"
+        f"DATABASE={{OUTSYSTEM_API}};"
+        f"UID={{Galaxy}};"
+        f"PWD={{OutSystems@123}}"
+    )
+    cursor = conn.cursor()
+
+    ist_timezone = pytz.timezone("Asia/Kolkata")
+    current_datetime = dt.datetime.now(ist_timezone)
+    cursor.execute(
+        """
+        INSERT INTO WhatsAppMsgs 
+        (id, uuid, session_key, message_text, media_url, media_type, media_mime_type, created_at, remote_phone_number, _2chat_link, channel_phone_number, sent_by, Issue)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """,
+        (
+            uuid_id,
+            uuid_id,
+            session_id,
+            formatted_history,
+            "NULL",
+            "NULL",
+            "NULL",
+            current_datetime,
+            remote_phone,
+            "NULL",
+            "+919322261280",
+            "NULL",
+            issue,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    path = f"c:\Users\Shreya\Downloads\+91{remote_phone}_session_key.txt"
+    if path:
+        os.remove(f"c:\Users\Shreya\Downloads\+91{remote_phone}_session_key.txt")
+   
     return response.json()
 
 @app.post("/get_result")
@@ -1494,6 +1526,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
                 elif get_user_interaction(request.from_number)["stage"] == "live_agent":
                     if max_similarity > 0.7:
+                        result = get_user_interaction(request.from_number)
                         issue = result.get('issue', None)
                         ist_timezone = pytz.timezone("Asia/Kolkata")
                         current_datetime = dt.datetime.now(ist_timezone)
@@ -1594,6 +1627,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
         elif get_stage(request.from_number)["stage"] == "live_agent":
                 user_response = request.message.lower()
                 try:
+                    result = get_user_interaction(request.from_number)
                     issue = result.get('issue', None)
                 except:
                     issue = None
