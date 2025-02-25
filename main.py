@@ -367,8 +367,36 @@ def generate_response(message: str, conversation_history: list, chunks_file: str
         else:
             logging.error(f"Key {key} not found in processing_store")
 
-def data_store(issue : str, conversation_history: str, remote_phone : str, uuid_id : str, session_id):
-    print("")
+def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
+    # Fetch conversation history from database
+    cursor.execute("""
+        SELECT message_text, response, sent_by
+        FROM l1_chat_history 
+        WHERE session_key = ?
+        ORDER BY created_at ASC
+    """, (session_id,))
+    
+    chat_records = cursor.fetchall()
+    
+    # Format conversation history
+    formatted_history = ""
+    for msg_text, response, sent_by in chat_records:
+        if sent_by == "user" and msg_text:
+            formatted_history += f"{msg_text}               \n"
+        if sent_by == "bot" and response:
+            formatted_history += f"               {response}\n"
+    
+    # Make API call with formatted history
+    response = requests.post('http://api.goapl.com/ticket/store-message', 
+        json={
+            'issue': issue,
+            'conversation_history': formatted_history,
+            'remote_phone': remote_phone,
+            'uuid_id': uuid_id,
+            'session_id': session_id
+        })
+    
+    return response.json()
 
 @app.post("/get_result")
 async def get_result(request:get_results):
@@ -1122,11 +1150,13 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
                             cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'No'", (action, dt_id))
                             no_id = cursor.fetchone()
+                            print("no_id = ", no_id)
 
                             cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'Yes'", (action, dt_id))
                             yes_id = cursor.fetchone()
+                            print("yes_id = ", yes_id)
 
-                            if yes_id:
+                            if yes_id:  
                                 yes_id = yes_id[0]
                             if no_id:
                                 no_id = no_id[0]
@@ -1139,7 +1169,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
                                 uuid_id = request.uuid_id
-                                #session_key = str(uuid.uuid4())
+                                #ession_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1181,6 +1211,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": question_text[0],
                                         "flag":""}
+
                             else:
                                 video_name = link_id[0]
                                 current_stage = "ongoing_solution"
@@ -1221,7 +1252,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                         session_key,
                                         "",
                                         f"{question_text[0]} \n{link_url}/videos/{video_name}",
-                                        phone_number, 
+                                        phone_number,
                                         "91+9322261280",
                                         str(current_datetime),
                                         "bot",
@@ -1285,6 +1316,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 )
                                 conn.commit()
                                 clear_stage(request.from_number)
+                                data_store(issue, request.from_number, request.uuid_id, session_key)
                                 #set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": "Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
                                         "flag":""}
@@ -1462,6 +1494,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
                 elif get_user_interaction(request.from_number)["stage"] == "live_agent":
                     if max_similarity > 0.7:
+                        issue = result.get('issue', None)
                         ist_timezone = pytz.timezone("Asia/Kolkata")
                         current_datetime = dt.datetime.now(ist_timezone)
                         
@@ -1506,6 +1539,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         )
                         conn.commit()
                         clear_stage(request.from_number)
+                        data_store(issue, request.from_number, request.uuid_id, session_key)
                         return {"message": "Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
                                 "flag":""}
 
@@ -1559,6 +1593,10 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
 
         elif get_stage(request.from_number)["stage"] == "live_agent":
                 user_response = request.message.lower()
+                try:
+                    issue = result.get('issue', None)
+                except:
+                    issue = None
                 yes_variations = ["yes", "yeah", "yep", "sure", "correct", "right", "ok", "okay", "perfect", "haa"]
                 no_variations = ["no", "not", "nope", "nah", "wrong", "incorrect", "nahi", "na"]
                 session_key = get_stage(request.from_number).get("session_key", "")
@@ -1614,6 +1652,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     )
                     conn.commit()
                     clear_stage(request.from_number)
+                    data_store(issue, request.from_number, request.uuid_id, session_key)
                     return {"message": "Thank you for contacting us. Currently All the Agents are Busy\nGenerating Ticket --",
                             "flag":""}
 
