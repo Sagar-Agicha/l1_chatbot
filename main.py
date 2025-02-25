@@ -369,6 +369,14 @@ def generate_response(message: str, conversation_history: list, chunks_file: str
 
 def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
     # Fetch conversation history from database
+    conn = pyodbc.connect(
+        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+        f"SERVER={{outsystems1.database.windows.net}};"
+        f"DATABASE={{OUTSYSTEM_API}};"
+        f"UID={{Galaxy}};"
+        f"PWD={{OutSystems@123}}"
+    )
+    cursor = conn.cursor()
     cursor.execute("""
         SELECT CAST(message_text AS NVARCHAR(MAX)) as message_text,
                CAST(response AS NVARCHAR(MAX)) as response,
@@ -388,15 +396,6 @@ def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
         if sent_by == "bot" and response:
             formatted_history += f"               {response}\n"
    
-    conn = pyodbc.connect(
-        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-        f"SERVER={{outsystems1.database.windows.net}};"
-        f"DATABASE={{OUTSYSTEM_API}};"
-        f"UID={{Galaxy}};"
-        f"PWD={{OutSystems@123}}"
-    )
-    cursor = conn.cursor()
-
     ist_timezone = pytz.timezone("Asia/Kolkata")
     current_datetime = dt.datetime.now(ist_timezone)
     cursor.execute(
@@ -424,11 +423,11 @@ def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
     conn.commit()
     conn.close()
 
-    path = f"c:\Users\Shreya\Downloads\+91{remote_phone}_session_key.txt"
-    if path:
-        os.remove(f"c:\Users\Shreya\Downloads\+91{remote_phone}_session_key.txt")
+    path = f"c:\\Users\\Shreya\\Downloads\\+91{remote_phone}_session_key.txt"
+    if os.path.exists(path):
+        os.remove(path)
    
-    return response.json()
+    return "Done"
 
 @app.post("/get_result")
 async def get_result(request:get_results):
