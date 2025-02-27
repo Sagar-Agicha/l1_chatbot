@@ -389,6 +389,39 @@ def encodings_process(pdf_file: str, phone_number: str, com_name: str, mo_name: 
     else:
         logging.error(f"Key {key} not found in processing_store")
 
+def generate_rag_response(user_response, chunks_file, encodings_file, conversation_history, phone_number, pdf_file, vector_file, rag_no):
+    with open(chunks_file, 'rb') as f:
+        chunks = pickle.load(f)
+    context_encodings = np.load(encodings_file)
+    conversation_history.append({"role": "user", "content": user_response})
+    conversation_history.append({"role": "system", "content": """You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.
+            When answering the user's questions:
+            1. Clearly indicate when you are using your own knowledge rather than information from the manual.
+            2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."""})
+    
+    retrieved_context = rag.retrieve_context(user_response, chunks, context_encodings)
+    conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
+
+    response = client.chat.completions.create(
+        model="Meta-Llama-3.1-8B-Instruct",
+        messages=conversation_history,
+        temperature=0.1,
+        top_p=0.1,
+    )
+    response = response.choices[0].message.content
+    conversation_history.append({"role": "assistant", "content": response})
+    rag_no += 1
+    
+    # Store the result in processing_store
+    key = phone_number[3:]  # Remove the '+91' prefix
+    if key in processing_store:
+        processing_store[key]["result"] = response + "\nIs it Working?"
+    
+    # Update the stage
+    set_stage("tech_support", phone_number=phone_number, pdf_file=pdf_file, 
+             vector_file=vector_file, conversation_history=conversation_history, 
+             solution_type="0", rag_no=rag_no)
+
 def generate_response(message: str, conversation_history: list, chunks_file: str, encodings_file: str, phone_number: str, pdf_file: str, vector_file: str, rag_no: int, solution_type: str):
     if chunks_file != '0':
         with open(chunks_file, 'rb') as f:
@@ -905,43 +938,36 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
 
             if solution_type == "RAG":
-                # Start the background task
                 if chunks_file != '0':
-                    with open(chunks_file, 'rb') as f:
-                        chunks = pickle.load(f)
-                    context_encodings = np.load(encodings_file)
-                    conversation_history.append({"role": "user", "content": user_response})
-                    conversation_history.append({"role": "system", "content": """You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.
-                            When answering the user's questions:
-                            1. Clearly indicate when you are using your own knowledge rather than information from the manual.
-                            2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."""})
+                    # Start background task for RAG response generation
+                    unique_id = str(uuid.uuid4())
+                    phone_key = phone_number[3:]  # Remove the '+91' prefix
+                    processing_store[phone_key] = {"uid": unique_id, "result": None}
                     
-                    retrieved_context = rag.retrieve_context(user_response, chunks, context_encodings)
-                    conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
-
-                    response = client.chat.completions.create(
-                        model="Meta-Llama-3.1-8B-Instruct",
-                        messages=conversation_history,
-                        temperature=0.1,
-                        top_p=0.1,
+                    background_tasks.add_task(
+                        generate_rag_response,
+                        user_response=request.message,
+                        chunks_file=chunks_file,
+                        encodings_file=encodings_file,
+                        conversation_history=conversation_history,
+                        phone_number=request.from_number,
+                        pdf_file=pdf_file,
+                        vector_file=vector_file,
+                        rag_no=rag_no
                     )
-                    response = response.choices[0].message.content
-                    conversation_history.append({"role": "assistant", "content": response})
-                    rag_no += 1
-                    solution_type = "0"
+
+                    # Store the user message in chat history
                     ist_timezone = pytz.timezone("Asia/Kolkata")
                     current_datetime = dt.datetime.now(ist_timezone)
                     
-                    uuid_id = request.uuid_id
-                    #session_key = str(uuid.uuid4())
                     cursor.execute(
                         """
                         INSERT INTO l1_chat_history 
                         (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
+                        """,
                         (
-                            uuid_id,
+                            request.uuid_id,
                             session_key,
                             request.message,
                             "",
@@ -953,28 +979,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     )
                     conn.commit()
 
-                    uuid_id = request.uuid_id
-                    cursor.execute(
-                        """
-                        INSERT INTO l1_chat_history 
-                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                        (
-                            uuid_id,
-                            session_key,
-                            "",
-                            f"{response} \nIs it Working?",
-                            phone_number,
-                            "91+9322261280",
-                            str(current_datetime),
-                            "bot",
-                        ),
-                    )
-                    conn.commit()
-                    set_stage("tech_support", phone_number=request.from_number, pdf_file=pdf_file, vector_file=vector_file, conversation_history=conversation_history, solution_type=solution_type, rag_no=rag_no)
-                    return {"message": f"{response} \nIs it Working?",         
-                            "flag":""}
+                    return {"message": "Processing your request...", "flag": "Yes"}
                 
             elif solution_type == "DT":
                 if get_user_interaction(request.from_number) == {} or get_user_interaction(request.from_number) is None:
@@ -1066,7 +1071,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
                                 uuid_id = request.uuid_id
-                                #session_key = str(uuid.uuid4())
+                                #ession_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1115,7 +1120,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
                                 uuid_id = request.uuid_id
-                                #session_key = str(uuid.uuid4())
+                                #ession_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1154,6 +1159,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                     ),
                                 )
                                 conn.commit()
+                                store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
                                 set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": question_text[0] + "\n" + f"{link_url}/videos/{video_name}",
                                         "flag":""}
@@ -1185,7 +1191,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             current_datetime = dt.datetime.now(ist_timezone)
                             
                             uuid_id = request.uuid_id
-                            #session_key = str(uuid.uuid4())
+                            #ession_key = str(uuid.uuid4())
                             cursor.execute(
                                 """
                                 INSERT INTO l1_chat_history 
@@ -1792,28 +1798,6 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     clear_stage(request.from_number)
                     return {"message": "Thank you for contacting us.",
                             "flag":""}
-
-def process_best_matching_tag(message: str, phone_number: str):
-    """Background task to process the best matching tag"""
-    result, dt_id, question_text, action = get_best_matching_tag(message)
-    
-    # Store the result in processing_store
-    key = phone_number
-    if key in processing_store:
-        if result is not None:
-            processing_store[key]["result"] = {
-                "result": result,
-                "dt_id": dt_id,
-                "question_text": question_text,
-                "action": action,
-                "solution_type": "DT"
-            }
-        else:
-            processing_store[key]["result"] = {
-                "solution_type": "RAG"
-            }
-    else:
-        logging.error(f"Key {key} not found in processing_store")
 
 if __name__ == "__main__":
     import uvicorn
