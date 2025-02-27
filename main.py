@@ -86,6 +86,61 @@ class get_results(BaseModel):
 
 link_url = "https://api.goapl.com"
 
+def store_messages(uuid_id, session_id, message, remote_phone_number, sent_by):
+    conn = pyodbc.connect(
+        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+        f"SERVER={{outsystems1.database.windows.net}};"
+        f"DATABASE={{OUTSYSTEM_API}};"
+        f"UID={{Galaxy}};"
+        f"PWD={{OutSystems@123}}"
+    )
+    cursor = conn.cursor()
+
+    id = uuid_id
+    uuid = uuid_id
+    session_key = session_id
+    message_text = message
+    media_url = "NULL"
+    media_type = "NULL"
+    media_mime_type = "NULL"
+    remote_phone_number = remote_phone_number
+    _2chat_link = "NULL"
+    channel_phone_number = "+919322261280"
+    sent_by = sent_by
+            
+    # Check if id already exists in the database
+    cursor.execute("SELECT COUNT(*) FROM WhatsAppMsgs WHERE id = ?", (id,))
+    result = cursor.fetchone()
+
+    ist_timezone = pytz.timezone("Asia/Kolkata")
+    current_datetime = dt.datetime.now(ist_timezone)
+
+    if result[0] == 0:
+        # If id does not exist, insert the new record
+        cursor.execute(
+            """
+            INSERT INTO WhatsAppMsgs 
+            (id, uuid, session_key, message_text, media_url, media_type, media_mime_type, created_at, remote_phone_number, _2chat_link, channel_phone_number, sent_by, Issue)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                id,
+                uuid,
+                session_key,
+                message_text,
+                media_url,
+                media_type,
+                media_mime_type,
+                current_datetime,
+                remote_phone_number,
+                _2chat_link,
+                channel_phone_number,
+                sent_by,
+                "NULL"
+            ),
+        )
+        conn.commit()
+
 def get_all_data(from_number: str):
     try:
         with open("user_data.json", "r") as file:
@@ -388,13 +443,13 @@ def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
    
     chat_records = cursor.fetchall()
    
-    # Format conversation history
+    # Format conversation history with specific spacing
     formatted_history = ""
     for msg_text, response, sent_by in chat_records:
         if sent_by == "user" and msg_text:
-            formatted_history += f"{msg_text}               \n"
+            formatted_history += f"\r\n{msg_text}{' ' * 15}\r\n"
         if sent_by == "bot" and response:
-            formatted_history += f"               {response}\n"
+            formatted_history += f"{' ' * 15}{response}\r\n"
    
     ist_timezone = pytz.timezone("Asia/Kolkata")
     current_datetime = dt.datetime.now(ist_timezone)
@@ -423,7 +478,7 @@ def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
     conn.commit()
     conn.close()
 
-    path = f"c:\\Users\\Shreya\\Downloads\\+91{remote_phone}_session_key.txt"
+    path = f"c:\\Users\\Shreya\\Downloads\\{remote_phone}_session_key.txt"
     if os.path.exists(path):
         os.remove(path)
    
@@ -523,6 +578,11 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     set_stage("no_data", request.from_number)
                     return {"message": "No user data found do you enter a new model name?",
                             "flag":"No"}
+
+            else:
+                uuid_id = request.uuid_id
+                session_key = request.session_id
+                store_messages(uuid_id=uuid_id, session_id=session_key, message=request.message, remote_phone_number=request.from_number, sent_by="user")
 
         elif get_stage(request.from_number)['stage'] == "data_found":
             user_response = request.message.lower()

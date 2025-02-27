@@ -1,1 +1,70 @@
-{}
+{
+    "+919820011282": {
+        "stage": "tech_support",
+        "com_name": "Apple Mac",
+        "mo_name": "Air 1",
+        "user_name": "Anoop Sir",
+        "last_time": "0",
+        "session_key": "WW-WPN1c6171f3-093a-4ba9-b5eb-d316c1721557-919820011282@c.us",
+        "pdf_file": "Mac_Air.pdf",
+        "vector_file": "encodings/encodings_9820011282.npy",
+        "chunks_file": "encodings/chunks_9820011282.pkl",
+        "last_uuid": [
+            "<module 'uuid' from 'c:\\\\Users\\\\Shreya\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\Lib\\\\uuid.py'>"
+        ],
+        "solution_type": "RAG",
+        "conversation_history": [
+            {
+                "role": "user",
+                "content": "i cannot open my mail."
+            },
+            {
+                "role": "system",
+                "content": "You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.\n                            When answering the user's questions:\n                            1. Clearly indicate when you are using your own knowledge rather than information from the manual.\n                            2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."
+            },
+            {
+                "role": "system",
+                "content": "Context:\n \n44\nChapter 3   Problem, Meet Solution\nUsing Apple Hardware Test\nIf you suspect a problem with the MacBook Air hardware, you can use the Apple \nHardware Test application to help determine if there\u2019s a problem with one of the \ncomputer\u2019s components, such as the memory or processor. \nTo use Apple Hardware Test on your MacBook Air:\n1 Disconnect all external devices from your computer except the power adapter. \n2 Restart your MacBook Air while holding down the D key.\n3 When the Apple Hardware Test chooser screen appears, select the language for your \nlocation.\n4 Press the Return key or click the right arrow button.\n5 When the Apple Hardware Test main screen appears (after about 45 seconds), follow \nthe onscreen instructions.\n6 If Apple Hardware Test detects a problem, it displays an error code. Make a note of the \nerror code before pursuing support options. If Apple Hardware Test doesn\u2019t detect a \nhardware failure, the problem may be software related.\nFor more information about Apple Hardware Test, see the Apple Hardware Test Read \nMe file on the Mac OS X Install Disc 1.\n"
+            },
+            {
+                "role": "assistant",
+                "content": "I'm here to help you troubleshoot the issue with your mail. \n\nFirst, let's try a simple step: \n\nHave you tried restarting your MacBook Air? Sometimes, a simple reboot can resolve connectivity issues. \n\nIf you're still having trouble after restarting, we can move on to the next step."
+            }
+        ],
+        "rag_no": 1
+    },
+    "+917977587238": {
+        "stage": "tech_support",
+        "com_name": "Lenovo",
+        "mo_name": "L14",
+        "user_name": "Sagar Agicha",
+        "last_time": "0",
+        "session_key": "WW-WPN1c6171f3-093a-4ba9-b5eb-d316c1721557-917977587238@c.us",
+        "pdf_file": "lenevo-thinkpad-L14.pdf",
+        "vector_file": "encodings/encodings_7977587238.npy",
+        "chunks_file": "encodings/chunks_7977587238.pkl",
+        "last_uuid": [
+            "<module 'uuid' from 'c:\\\\Users\\\\Shreya\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\Lib\\\\uuid.py'>"
+        ],
+        "solution_type": "RAG",
+        "conversation_history": [
+            {
+                "role": "user",
+                "content": "i can&#x27;t connect to my internet"
+            },
+            {
+                "role": "system",
+                "content": "You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.\n                            When answering the user's questions:\n                            1. Clearly indicate when you are using your own knowledge rather than information from the manual.\n                            2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."
+            },
+            {
+                "role": "system",
+                "content": "Context:\nBottom\n1. Docking-station hook holes\nUse the docking-station hook holes to secure a supported docking station.\n2. Speakers\nEnable you to experience high-quality sound.\n8\nL14 Gen 1 and L15 Gen 1 User Guide\n"
+            },
+            {
+                "role": "assistant",
+                "content": "I'm here to help you troubleshoot the issue with your internet connection. \n\nFirst, let's try a simple step to see if it resolves the problem. \n\n**Step 1: Restart your router**\n\nThis is a common solution that often resolves connectivity issues. To restart your router, follow these steps:\n\n1. Unplug the power cord from the back of your router.\n2. Wait for 30 seconds to allow any residual power to drain.\n3. Plug the power cord back into the router.\n4. Wait for the router to boot up and establish a connection.\n\nPlease try this step and see if it resolves the issue. If not, we can proceed with further troubleshooting.\n\n(Note: This step is based on general knowledge and not specific to the laptop manual provided.)"
+            }
+        ],
+        "rag_no": 1
+    }
+}
