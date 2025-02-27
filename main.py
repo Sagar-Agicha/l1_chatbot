@@ -517,18 +517,164 @@ def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
    
     return "Done"
 
+def check_query_type(message: str, phone_number: str, current_last_uuid: list):
+    """Background task to determine query type and store result"""
+    result, dt_id, question_text, action = get_best_matching_tag(message)
+    
+    # Remove '+91' prefix for processing store key
+    key = phone_number[3:]
+    
+    if result is not None:
+        solution_type = "DT"
+        if key in processing_store:
+            processing_store[key]["result"] = {
+                "type": "DT",
+                "question_text": question_text,
+                "dt_id": dt_id,
+                "action": action,
+                "result": result
+            }
+    else:
+        solution_type = "RAG"
+        if key in processing_store:
+            processing_store[key]["result"] = {
+                "type": "RAG"
+            }
+    
+    current_last_uuid.append(str(uuid))
+    set_stage(stage="tech_support", phone_number=phone_number, 
+             solution_type=solution_type, last_uuid=current_last_uuid)
+
 @app.post("/get_result")
-async def get_result(request:get_results):
-    """
-    Checks if the background task has completed and returns the result if available.
-    """
+async def get_result(request: get_results, background_tasks: BackgroundTasks):
     key = request.phone_number[3:]
     if key in processing_store:
+        # Add timeout check
+        if "start_time" not in processing_store[key]:
+            processing_store[key]["start_time"] = dt.datetime.now()
+        elif (dt.datetime.now() - processing_store[key]["start_time"]).seconds > 30:  # 30 second timeout
+            del processing_store[key]
+            return {"message": "Request timed out. Please try again.", "flag": ""}
+            
+        stage_data = get_all_data(request.phone_number)
+        pdf_file = stage_data.get('pdf_file')
+        encodings_file = stage_data.get('vector_file')
+        chunks_file = stage_data.get('chunks_file')
+        conversation_history = stage_data.get('conversation_history', [])
+        solution_type = stage_data.get('solution_type', "0")
+        vector_file = stage_data.get('vector_file')
+        current_last_uuid = get_stage(request.phone_number).get("last_uuid", [])
+        rag_no = stage_data.get('rag_no', 0)
+        user_response = request.unique_id.lower()
+        yes_variations = ["yes", "yeah", "yep", "sure", "correct", "right", "ok", "okay", "perfect", "haa"]
+        no_variations = ["no", "not", "nope", "nah", "wrong", "incorrect", "nahi", "na"]
+        session_key = get_stage(request.phone_number).get("session_key", "")
+
         if processing_store[key]["result"]:
             result = processing_store[key]["result"]
             # Clear the result after retrieving it
             processing_store[key]["result"] = None
-            return {"message": result, "flag": ""}
+            
+            if isinstance(result, dict):
+                if result["type"] == "DT":
+                    # Handle DT response
+                    current_stage = "start_solution"
+                    store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=result["question_text"], dt_id=result["dt_id"], action=result["action"])
+                    set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                    ist_timezone = pytz.timezone("Asia/Kolkata")
+                    current_datetime = dt.datetime.now(ist_timezone)
+                    
+                    uuid_id = request.uuid_id
+                    #session_key = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            request.message,
+                            "",
+                            request.phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "user",
+                        ),
+                    )
+                    conn.commit()
+
+                    uuid_id = request.uuid_id
+                    cursor.execute(
+                        """
+                        INSERT INTO l1_chat_history 
+                        (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            uuid_id,
+                            session_key,
+                            "",
+                            f"{result['question_text']} \nCan you confirm this is related to your issue?",
+                            request.phone_number,
+                            "91+9322261280",
+                            str(current_datetime),
+                            "bot",
+                        ),
+                    )
+                    conn.commit()
+                    return {"message": f"{result['question_text']} \nCan you confirm this is related to your issue?",         
+                            "flag":""}
+                
+                elif result["type"] == "RAG":
+                    if solution_type == "RAG":
+                        if chunks_file != '0':
+                            # Start background task for RAG response generation
+                            unique_id = str(uuid.uuid4())
+                            phone_key = request.phone_number[3:]  # Remove the '+91' prefix
+                            processing_store[phone_key] = {"uid": unique_id, "result": None}
+                            
+                            background_tasks.add_task(
+                                generate_rag_response,
+                                user_response=request.message,
+                                chunks_file=chunks_file,
+                                encodings_file=encodings_file,
+                                conversation_history=conversation_history,
+                                phone_number=request.from_number,
+                                pdf_file=pdf_file,
+                                vector_file=vector_file,
+                                rag_no=rag_no
+                            )
+
+                            # Store the user message in chat history
+                            ist_timezone = pytz.timezone("Asia/Kolkata")
+                            current_datetime = dt.datetime.now(ist_timezone)
+                            
+                            cursor.execute(
+                                """
+                                INSERT INTO l1_chat_history 
+                                (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                (
+                                    request.uuid_id,
+                                    session_key,
+                                    request.message,
+                                    "",
+                                    request.phone_number,
+                                    "91+9322261280",
+                                    str(current_datetime),
+                                    "user",
+                                ),
+                            )
+                            conn.commit()
+
+                            return {"message": "Processing your request...", "flag": "Yes"}
+ 
+            else:
+                # Handle regular response (from RAG processing)
+                return {"message": result, "flag": ""}
         else:
             return {"message": "Processing not complete yet", "flag": "No"}
     else:
@@ -926,16 +1072,19 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         "flag":""}
                 
             elif solution_type == "0":
-                result, dt_id, question_text, action = get_best_matching_tag(request.message)
-                if result is not None:
-                    solution_type = "DT"
-                    current_last_uuid.append(str(uuid))
-                    set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
+                # Start background task to determine query type
+                unique_id = str(uuid.uuid4())
+                phone_key = phone_number[3:]  # Remove the '+91' prefix
+                processing_store[phone_key] = {"uid": unique_id, "result": None}
                 
-                else:
-                    solution_type = "RAG"
-                    current_last_uuid.append(str(uuid))
-                    set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
+                background_tasks.add_task(
+                    check_query_type,
+                    message=request.message,
+                    phone_number=request.from_number,
+                    current_last_uuid=current_last_uuid
+                )
+                
+                return {"message": "Processing your request...", "flag": "Yes"}
 
             if solution_type == "RAG":
                 if chunks_file != '0':
@@ -991,7 +1140,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         current_datetime = dt.datetime.now(ist_timezone)
                         
                         uuid_id = request.uuid_id
-                        #session_key = str(uuid.uuid4())
+                        #ession_key = str(uuid.uuid4())
                         cursor.execute(
                             """
                             INSERT INTO l1_chat_history 
