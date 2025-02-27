@@ -484,6 +484,28 @@ def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
    
     return "Done"
 
+def process_best_matching_tag(message: str, phone_number: str):
+    """Background task to process the best matching tag"""
+    result, dt_id, question_text, action = get_best_matching_tag(message)
+    
+    # Store the result in processing_store
+    key = phone_number
+    if key in processing_store:
+        if result is not None:
+            processing_store[key]["result"] = {
+                "result": result,
+                "dt_id": dt_id,
+                "question_text": question_text,
+                "action": action,
+                "solution_type": "DT"
+            }
+        else:
+            processing_store[key]["result"] = {
+                "solution_type": "RAG"
+            }
+    else:
+        logging.error(f"Key {key} not found in processing_store")
+
 @app.post("/get_result")
 async def get_result(request:get_results):
     """
