@@ -760,7 +760,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         uuid_id,
                         session_key,
                         "",
-                        "Please Say Yes or No",
+                        f"Please Say Yes or No",
                         phone_number,
                         "91+9322261280",
                         str(current_datetime),
@@ -898,16 +898,40 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         "flag":""}
                 
             elif solution_type == "0":
-                result, dt_id, question_text, action = get_best_matching_tag(request.message)
-                if result is not None:
-                    solution_type = "DT"
-                    current_last_uuid.append(str(uuid))
-                    set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
+                # Start the background task
+                unique_id = str(uuid.uuid4())
+                logging.info(f"Adding background task for {phone_number}")
+                processing_store[phone_number] = {"uid": unique_id, "result": None}
+                background_tasks.add_task(
+                    process_best_matching_tag,
+                    message=request.message,
+                    phone_number=phone_number
+                )
                 
-                else:
-                    solution_type = "RAG"
-                    current_last_uuid.append(str(uuid))
-                    set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
+                ist_timezone = pytz.timezone("Asia/Kolkata")
+                current_datetime = dt.datetime.now(ist_timezone)
+                
+                # Store the message in chat history
+                cursor.execute(
+                    """
+                    INSERT INTO l1_chat_history 
+                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        request.uuid_id,
+                        session_key,
+                        request.message,
+                        "",
+                        phone_number,
+                        "91+9322261280",
+                        str(current_datetime),
+                        "user",
+                    ),
+                )
+                conn.commit()
+
+                return {"message": "Processing your request...", "flag": "Yes"}
 
             if solution_type == "RAG":
                 # Start the background task
@@ -1071,7 +1095,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
                                 uuid_id = request.uuid_id
-                                #session_key = str(uuid.uuid4())
+                                #ession_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1120,7 +1144,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
                                 uuid_id = request.uuid_id
-                                #session_key = str(uuid.uuid4())
+                                #ession_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1190,7 +1214,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             current_datetime = dt.datetime.now(ist_timezone)
                             
                             uuid_id = request.uuid_id
-                            #session_key = str(uuid.uuid4())
+                            #ession_key = str(uuid.uuid4())
                             cursor.execute(
                                 """
                                 INSERT INTO l1_chat_history 
@@ -1233,17 +1257,17 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             return {"message":"Sorry It seems I cant help you\n Do you want to connect to an Live Agent?",}
 
                         elif issue and dt_id and action:
-                            cursor.execute("SELECT question_text FROM decision_tree WHERE question_id = ? AND dt_id = ?", (action, dt_id))
+                            cursor.execute("SELECT question_text FROM decision_tree WHERE question_id = ? AND dt_id = ?", (yes_id, dt_id))
                             question_text = cursor.fetchone()
 
-                            cursor.execute("SELECT link_id FROM decision_tree WHERE question_id = ? AND dt_id = ?", (action, dt_id))
+                            cursor.execute("SELECT link_id FROM decision_tree WHERE question_id = ? AND dt_id = ?", (yes_id, dt_id))
                             link_id = cursor.fetchone()
 
-                            cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'No'", (action, dt_id))
+                            cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'No'", (yes_id, dt_id))
                             no_id = cursor.fetchone()
                             print("no_id = ", no_id)
 
-                            cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'Yes'", (action, dt_id))
+                            cursor.execute("SELECT action_id FROM decision_tree WHERE parent_id = ? AND dt_id = ? AND question_text = 'Yes'", (yes_id, dt_id))
                             yes_id = cursor.fetchone()
                             print("yes_id = ", yes_id)
 
@@ -1299,14 +1323,13 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                     ),
                                 )
                                 conn.commit()
+                                store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
                                 set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": question_text[0],
                                         "flag":""}
 
                             else:
                                 video_name = link_id[0]
-                                current_stage = "ongoing_solution"
-                                store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
                                 ist_timezone = pytz.timezone("Asia/Kolkata")
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
@@ -1350,6 +1373,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                     ),
                                 )
                                 conn.commit()
+                                store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
                                 set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
                                 return {"message": question_text[0] + "\n" + f"{link_url}/videos/{video_name}",
                                         "flag":""}
@@ -1435,6 +1459,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 if link_id[0] == "0":
                                     current_last_uuid.append(str(uuid))
                                     current_stage = "ongoing_solution"
+                                    store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=no_id, yes_id=yes_id)
                                     ist_timezone = pytz.timezone("Asia/Kolkata")
                                     current_datetime = dt.datetime.now(ist_timezone)
                                     
@@ -1796,6 +1821,28 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     clear_stage(request.from_number)
                     return {"message": "Thank you for contacting us.",
                             "flag":""}
+
+def process_best_matching_tag(message: str, phone_number: str):
+    """Background task to process the best matching tag"""
+    result, dt_id, question_text, action = get_best_matching_tag(message)
+    
+    # Store the result in processing_store
+    key = phone_number
+    if key in processing_store:
+        if result is not None:
+            processing_store[key]["result"] = {
+                "result": result,
+                "dt_id": dt_id,
+                "question_text": question_text,
+                "action": action,
+                "solution_type": "DT"
+            }
+        else:
+            processing_store[key]["result"] = {
+                "solution_type": "RAG"
+            }
+    else:
+        logging.error(f"Key {key} not found in processing_store")
 
 if __name__ == "__main__":
     import uvicorn
