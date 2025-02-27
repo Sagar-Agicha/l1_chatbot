@@ -558,3 +558,81 @@
 2025-02-27 14:02:48,749 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
 2025-02-27 14:04:07,388 - INFO - Processing request from 7977587238
 2025-02-27 14:04:07,388 - INFO - Adding background task for 7977587238
+2025-02-27 14:52:40,231 - INFO - Use pytorch device_name: cpu
+2025-02-27 14:52:40,231 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 14:52:58,856 - INFO - Processing request from 7977587238
+2025-02-27 14:54:41,165 - INFO - Use pytorch device_name: cpu
+2025-02-27 14:54:41,165 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 14:54:58,902 - INFO - Processing request from 7977587238
+2025-02-27 14:56:55,259 - INFO - Use pytorch device_name: cpu
+2025-02-27 14:56:55,259 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 14:57:06,773 - INFO - Processing request from 7977587238
+2025-02-27 14:59:44,523 - INFO - Use pytorch device_name: cpu
+2025-02-27 14:59:44,524 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 14:59:54,786 - INFO - Processing request from +917977587238
+2025-02-27 14:59:57,442 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-27 15:00:07,976 - INFO - Processing request from +917977587238
+2025-02-27 15:00:10,398 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-27 15:01:06,049 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:01:06,049 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:01:44,122 - INFO - Processing request from +917977587238
+2025-02-27 15:03:19,747 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:03:19,747 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:03:29,353 - INFO - Processing request from +917977587238
+2025-02-27 15:08:15,850 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:08:15,850 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:08:28,219 - INFO - Processing request from +917977587238
+2025-02-27 15:08:39,762 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-27 15:08:59,906 - INFO - Processing request from +917977587238
+2025-02-27 15:09:02,550 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-27 15:09:13,918 - INFO - Processing request from +917977587238
+2025-02-27 15:09:16,539 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-27 15:09:27,215 - INFO - Processing request from +917977587238
+2025-02-27 15:09:34,304 - INFO - Processing request from +917977587238
+2025-02-27 15:11:18,890 - INFO - Processing request from +917977587238
+2025-02-27 15:11:38,941 - INFO - Processing request from +917977587238
+2025-02-27 15:11:56,721 - INFO - Processing request from +917977587238
+2025-02-27 15:12:39,688 - INFO - Processing request from +917977587238
+2025-02-27 15:14:38,973 - INFO - Processing request from +917977587238
+2025-02-27 15:14:48,794 - INFO - Processing request from +917977587238
+2025-02-27 15:16:50,868 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:16:50,868 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:17:03,659 - INFO - Processing request from +917977587238
+2025-02-27 15:17:12,394 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-27 15:17:23,881 - INFO - Processing request from +917977587238
+2025-02-27 15:17:26,188 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-27 15:17:38,326 - INFO - Processing request from +917977587238
+2025-02-27 15:17:40,907 - INFO - HTTP Request: POST https://api.sambanova.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-02-27 15:17:55,976 - INFO - Processing request from +917977587238
+2025-02-27 15:18:05,469 - INFO - Processing request from +917977587238
+2025-02-27 15:20:01,103 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:20:01,103 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:20:08,660 - INFO - Processing request from +917977587238
+2025-02-27 15:20:14,116 - INFO - Processing request from +917977587238
+2025-02-27 15:20:25,157 - INFO - Processing request from +917977587238
+2025-02-27 15:24:32,839 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:24:32,839 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:25:05,647 - INFO - Processing request from +917977587238
+2025-02-27 15:25:20,134 - INFO - Processing request from +917977587238
+2025-02-27 15:25:20,766 - INFO - Processing request from +917977587238
+2025-02-27 15:25:21,475 - INFO - Processing request from +917977587238
+2025-02-27 15:27:01,114 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:27:01,114 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:27:18,613 - INFO - Processing request from +917977587238
+2025-02-27 15:27:19,328 - INFO - Processing request from +917977587238
+2025-02-27 15:27:20,022 - INFO - Processing request from +917977587238
+2025-02-27 15:29:31,950 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:29:31,965 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:29:39,925 - INFO - Processing request from +917977587238
+2025-02-27 15:30:03,380 - INFO - Processing request from +917977587238
+2025-02-27 15:30:04,013 - INFO - Processing request from +917977587238
+2025-02-27 15:30:04,721 - INFO - Processing request from +917977587238
+2025-02-27 15:31:38,534 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:31:38,534 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:31:47,381 - INFO - Processing request from +917977587238
+2025-02-27 15:34:32,004 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:34:32,004 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:34:47,906 - INFO - Processing request from +917977587238
+2025-02-27 15:36:32,705 - INFO - Use pytorch device_name: cpu
+2025-02-27 15:36:32,705 - INFO - Load pretrained SentenceTransformer: all-mpnet-base-v2
+2025-02-27 15:36:40,874 - INFO - Processing request from +917977587238

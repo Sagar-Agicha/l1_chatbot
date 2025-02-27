@@ -81,6 +81,7 @@ class WebhookData(BaseModel):
     from_number: str
 
 class get_results(BaseModel):
+    uuid_id : str
     phone_number: str
     unique_id:str
 
@@ -413,7 +414,7 @@ def generate_rag_response(user_response, chunks_file, encodings_file, conversati
     rag_no += 1
     
     # Store the result in processing_store
-    key = phone_number[3:]  # Remove the '+91' prefix
+    key = phone_number   # Remove the '+91' prefix
     if key in processing_store:
         processing_store[key]["result"] = response + "\nIs it Working?"
     
@@ -449,7 +450,7 @@ def generate_response(message: str, conversation_history: list, chunks_file: str
         set_stage("tech_support", phone_number=phone_number, pdf_file=pdf_file, vector_file=vector_file, conversation_history=conversation_history, solution_type=solution_type, rag_no=rag_no)
         
         # Store the result in processing_store
-        key = phone_number[3:]  # Remove the '+91' prefix
+        key = phone_number   # Remove the '+91' prefix
         if key in processing_store:
             processing_store[key]["result"] = response + "\nIs it Working?"
         else:
@@ -522,7 +523,7 @@ def check_query_type(message: str, phone_number: str, current_last_uuid: list):
     result, dt_id, question_text, action = get_best_matching_tag(message)
     
     # Remove '+91' prefix for processing store key
-    key = phone_number[3:]
+    key = phone_number 
     
     if result is not None:
         solution_type = "DT"
@@ -547,7 +548,7 @@ def check_query_type(message: str, phone_number: str, current_last_uuid: list):
 
 @app.post("/get_result")
 async def get_result(request: get_results, background_tasks: BackgroundTasks):
-    key = request.phone_number[3:]
+    key = request.phone_number 
     if key in processing_store:
         # Add timeout check
         if "start_time" not in processing_store[key]:
@@ -579,8 +580,8 @@ async def get_result(request: get_results, background_tasks: BackgroundTasks):
                 if result["type"] == "DT":
                     # Handle DT response
                     current_stage = "start_solution"
-                    store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=result["question_text"], dt_id=result["dt_id"], action=result["action"])
-                    set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
+                    store_user_interaction(request.phone_number, current_stage, solution_number=0, result=result, issue=result["question_text"], dt_id=result["dt_id"], action=result["action"])
+                    set_stage(stage="tech_support", phone_number=request.phone_number, last_uuid=current_last_uuid)
                     ist_timezone = pytz.timezone("Asia/Kolkata")
                     current_datetime = dt.datetime.now(ist_timezone)
                     
@@ -593,9 +594,9 @@ async def get_result(request: get_results, background_tasks: BackgroundTasks):
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                         (
-                            uuid_id,
+                            request.uuid_id,
                             session_key,
-                            request.message,
+                            request.unique_id,
                             "",
                             request.phone_number,
                             "91+9322261280",
@@ -632,16 +633,16 @@ async def get_result(request: get_results, background_tasks: BackgroundTasks):
                         if chunks_file != '0':
                             # Start background task for RAG response generation
                             unique_id = str(uuid.uuid4())
-                            phone_key = request.phone_number[3:]  # Remove the '+91' prefix
+                            phone_key = request.phone_number   # Remove the '+91' prefix
                             processing_store[phone_key] = {"uid": unique_id, "result": None}
                             
                             background_tasks.add_task(
                                 generate_rag_response,
-                                user_response=request.message,
+                                user_response=request.unique_id,
                                 chunks_file=chunks_file,
                                 encodings_file=encodings_file,
                                 conversation_history=conversation_history,
-                                phone_number=request.from_number,
+                                phone_number=request.phone_number,
                                 pdf_file=pdf_file,
                                 vector_file=vector_file,
                                 rag_no=rag_no
@@ -660,7 +661,7 @@ async def get_result(request: get_results, background_tasks: BackgroundTasks):
                                 (
                                     request.uuid_id,
                                     session_key,
-                                    request.message,
+                                    request.unique_id,
                                     "",
                                     request.phone_number,
                                     "91+9322261280",
@@ -682,12 +683,12 @@ async def get_result(request: get_results, background_tasks: BackgroundTasks):
 
 @app.post("/webhook")
 async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
-    phone_number = request.from_number[3:]  # Remove the '+91' prefix
+    phone_number = request.from_number   # Remove the '+91' prefix
     user_validation = check_text_content(request.message)
     if user_validation['is_valid']:
         logging.info(f"Processing request from {phone_number}")
         if get_stage(request.from_number) == {}:
-            phone_number = request.from_number[3:]
+            phone_number = request.from_number
             cursor.execute("""
                 SELECT user_name
                 FROM l1_tree 
@@ -697,7 +698,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
             result = cursor.fetchone()
 
             if result:
-                phone_number = request.from_number[3:]
+                phone_number = request.from_number 
                 cursor.execute("""
                     SELECT user_name, com_name, mo_name
                     FROM l1_tree 
@@ -772,7 +773,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
             no_max_similarity = 1.0 if any(no_word in user_response for no_word in no_variations) else 0.0
             
             if max_similarity > 0.7:
-                phone_number = request.from_number[3:]
+                phone_number = request.from_number 
                 cursor.execute("""
                     SELECT user_name, com_name, mo_name, pdf_file, vector_file, chunks_file
                     FROM l1_tree 
@@ -1074,7 +1075,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
             elif solution_type == "0":
                 # Start background task to determine query type
                 unique_id = str(uuid.uuid4())
-                phone_key = phone_number[3:]  # Remove the '+91' prefix
+                phone_key = phone_number   # Remove the '+91' prefix
                 processing_store[phone_key] = {"uid": unique_id, "result": None}
                 
                 background_tasks.add_task(
@@ -1090,7 +1091,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                 if chunks_file != '0':
                     # Start background task for RAG response generation
                     unique_id = str(uuid.uuid4())
-                    phone_key = phone_number[3:]  # Remove the '+91' prefix
+                    phone_key = phone_number   # Remove the '+91' prefix
                     processing_store[phone_key] = {"uid": unique_id, "result": None}
                     
                     background_tasks.add_task(
@@ -1131,65 +1132,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     return {"message": "Processing your request...", "flag": "Yes"}
                 
             elif solution_type == "DT":
-                if get_user_interaction(request.from_number) == {} or get_user_interaction(request.from_number) is None:
-                    if result or question_text or dt_id:
-                        current_stage = "start_solution"
-                        store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=question_text, dt_id=dt_id, action=action)
-                        set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
-                        ist_timezone = pytz.timezone("Asia/Kolkata")
-                        current_datetime = dt.datetime.now(ist_timezone)
-                        
-                        uuid_id = request.uuid_id
-                        #ession_key = str(uuid.uuid4())
-                        cursor.execute(
-                            """
-                            INSERT INTO l1_chat_history 
-                            (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                            (
-                                uuid_id,
-                                session_key,
-                                request.message,
-                                "",
-                                phone_number,
-                                "91+9322261280",
-                                str(current_datetime),
-                                "user",
-                            ),
-                        )
-                        conn.commit()
-
-                        uuid_id = request.uuid_id
-                        cursor.execute(
-                            """
-                            INSERT INTO l1_chat_history 
-                            (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                            (
-                                uuid_id,
-                                session_key,
-                                "",
-                                f"{question_text} \nCan you confirm this is related to your issue?",
-                                phone_number,
-                                "91+9322261280",
-                                str(current_datetime),
-                                "bot",
-                            ),
-                        )
-                        conn.commit()
-                        return {"message": f"{question_text} \nCan you confirm this is related to your issue?",         
-                                "flag":""}
-                    else:
-                        current_stage = "location_verified"
-                        current_last_uuid.append(str(uuid))
-                        store_user_interaction(request.from_number, current_stage, 0)
-                        set_stage(stage="tech_support", phone_number=request.from_number, last_uuid=current_last_uuid)
-                        return {"message": "Please describe the issue again in more simple words.",
-                                "flag":""}
-
-                elif get_user_interaction(request.from_number)["stage"] == "start_solution":
+                if get_user_interaction(request.from_number)["stage"] == "start_solution":
                     if max_similarity > 0.7:
                         result = get_user_interaction(request.from_number)
                         issue = result.get('issue', None)

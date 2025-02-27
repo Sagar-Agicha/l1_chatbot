@@ -8,6 +8,10 @@
         "session_key": "WW-WPN1c6171f3-093a-4ba9-b5eb-d316c1721557-917977587238@c.us",
         "pdf_file": "lenevo-thinkpad-L14.pdf",
         "vector_file": "encodings/encodings_7977587238.npy",
-        "chunks_file": "encodings/chunks_7977587238.pkl"
+        "chunks_file": "encodings/chunks_7977587238.pkl",
+        "last_uuid": [
+            "<module 'uuid' from 'c:\\\\Users\\\\Shreya\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\Lib\\\\uuid.py'>"
+        ],
+        "solution_type": "DT"
     }
 }
