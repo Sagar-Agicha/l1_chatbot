@@ -484,28 +484,6 @@ def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
    
     return "Done"
 
-def process_best_matching_tag(message: str, phone_number: str):
-    """Background task to process the best matching tag"""
-    result, dt_id, question_text, action = get_best_matching_tag(message)
-    
-    # Store the result in processing_store
-    key = phone_number
-    if key in processing_store:
-        if result is not None:
-            processing_store[key]["result"] = {
-                "result": result,
-                "dt_id": dt_id,
-                "question_text": question_text,
-                "action": action,
-                "solution_type": "DT"
-            }
-        else:
-            processing_store[key]["result"] = {
-                "solution_type": "RAG"
-            }
-    else:
-        logging.error(f"Key {key} not found in processing_store")
-
 @app.post("/get_result")
 async def get_result(request:get_results):
     """
@@ -600,11 +578,6 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     set_stage("no_data", request.from_number)
                     return {"message": "No user data found do you enter a new model name?",
                             "flag":"No"}
-
-            else:
-                uuid_id = request.uuid_id
-                session_key = request.session_id
-                store_messages(uuid_id=uuid_id, session_id=session_key, message=request.message, remote_phone_number=request.from_number, sent_by="user")
 
         elif get_stage(request.from_number)['stage'] == "data_found":
             user_response = request.message.lower()
@@ -782,7 +755,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         uuid_id,
                         session_key,
                         "",
-                        f"Please Say Yes or No",
+                        "Please Say Yes or No",
                         phone_number,
                         "91+9322261280",
                         str(current_datetime),
@@ -920,40 +893,16 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                         "flag":""}
                 
             elif solution_type == "0":
-                # Start the background task
-                unique_id = str(uuid.uuid4())
-                logging.info(f"Adding background task for {phone_number}")
-                processing_store[phone_number] = {"uid": unique_id, "result": None}
-                background_tasks.add_task(
-                    process_best_matching_tag,
-                    message=request.message,
-                    phone_number=phone_number
-                )
+                result, dt_id, question_text, action = get_best_matching_tag(request.message)
+                if result is not None:
+                    solution_type = "DT"
+                    current_last_uuid.append(str(uuid))
+                    set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
                 
-                ist_timezone = pytz.timezone("Asia/Kolkata")
-                current_datetime = dt.datetime.now(ist_timezone)
-                
-                # Store the message in chat history
-                cursor.execute(
-                    """
-                    INSERT INTO l1_chat_history 
-                    (uuid, session_key, message_text, response, remote_phone_number, channel_phone_number, created_at, sent_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        request.uuid_id,
-                        session_key,
-                        request.message,
-                        "",
-                        phone_number,
-                        "91+9322261280",
-                        str(current_datetime),
-                        "user",
-                    ),
-                )
-                conn.commit()
-
-                return {"message": "Processing your request...", "flag": "Yes"}
+                else:
+                    solution_type = "RAG"
+                    current_last_uuid.append(str(uuid))
+                    set_stage(stage="tech_support", phone_number=request.from_number, solution_type=solution_type, last_uuid=current_last_uuid)
 
             if solution_type == "RAG":
                 # Start the background task
@@ -1117,7 +1066,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
                                 uuid_id = request.uuid_id
-                                #ession_key = str(uuid.uuid4())
+                                #session_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1166,7 +1115,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
                                 uuid_id = request.uuid_id
-                                #ession_key = str(uuid.uuid4())
+                                #session_key = str(uuid.uuid4())
                                 cursor.execute(
                                     """
                                     INSERT INTO l1_chat_history 
@@ -1236,7 +1185,7 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                             current_datetime = dt.datetime.now(ist_timezone)
                             
                             uuid_id = request.uuid_id
-                            #ession_key = str(uuid.uuid4())
+                            #session_key = str(uuid.uuid4())
                             cursor.execute(
                                 """
                                 INSERT INTO l1_chat_history 
