@@ -311,17 +311,23 @@ def get_best_matching_tag(user_query):
     return best_tag, dt_id, question_text, action
 
 def store_user_interaction(phone_number: str, stage: str = '0', solution_number: int = 0, result: dict = None, issue: str = None, dt_id: int = None, action: str = None, yes_id: str = None, user_name: str = None):
+    # Convert result to serializable format if it's a Row object
+    if result and hasattr(result, '_mapping'):
+        result = dict(result._mapping)
+    elif result and isinstance(result, pyodbc.Row):
+        result = {key: value for key, value in zip([column[0] for column in cursor.description], result)}
+    
     interaction = {
         "phone_number": phone_number,
         "stage": stage,
-        "issue": issue,
-        "dt_id": dt_id,
+        "issue": str(issue) if issue else None,  # Convert to string in case it's a Row
+        "dt_id": int(dt_id) if dt_id else None,  # Convert to int in case it's a Row
         "solution_number": solution_number,
         "timestamp": str(dt.datetime.now()),
         "user_name": user_name,
         "result": result,
-        "action": action,
-        "yes_id": yes_id,
+        "action": str(action) if action else None,  # Convert to string in case it's a Row
+        "yes_id": str(yes_id) if yes_id else None,  # Convert to string in case it's a Row
     }
     
     try:
@@ -1455,7 +1461,6 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                                 current_stage = "live_agent"
                                 store_user_interaction(request.from_number, current_stage, solution_number=0, result=result, issue=issue, dt_id=dt_id, action=action, yes_id=yes_id)
                                 current_last_uuid.append(str(uuid))
-                                clear_stage(request.from_number)
                                 ist_timezone = pytz.timezone("Asia/Kolkata")
                                 current_datetime = dt.datetime.now(ist_timezone)
                                 
