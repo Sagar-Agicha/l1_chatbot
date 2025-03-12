@@ -35,7 +35,11 @@ logging.basicConfig(
     ]
 )
 
-model = SentenceTransformer('all-mpnet-base-v2')  # Best model for general-purpose semantic matching
+model = SentenceTransformer('all-mpnet-base-v2') # Best model for general-purpose semantic matching
+
+# Encode tags and user query using your NLP model
+tags = ["tech_support", "product_support", "order_support", "payment_support", "account_support", "other"]
+tag_embeddings = model.encode(tags)
 
 app.add_middleware(
     CORSMiddleware,
@@ -363,7 +367,9 @@ def encodings_process(pdf_file: str, phone_number: str, com_name: str, mo_name: 
     current_chunks = rag.get_chunks(pdf_file)
     all_chunks.extend(current_chunks)
     chunks = all_chunks
-    context_encodings = rag.encode_chunks(chunks)
+
+    request = requests.get("http://10.10.90.105:6001/encode", json={"context": chunks})
+    context_encodings = request.json()["encodings"]
 
     # Save chunks to a file
     chunks_filename = f"encodings/chunks_{phone_number}.pkl"
@@ -404,13 +410,8 @@ def generate_rag_response(user_response, chunks_file, encodings_file, conversati
     retrieved_context = rag.retrieve_context(user_response, chunks, context_encodings)
     conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
 
-    response = client.chat.completions.create(
-        model="Meta-Llama-3.1-8B-Instruct",
-        messages=conversation_history,
-        temperature=0.1,
-        top_p=0.1,
-    )
-    response = response.choices[0].message.content
+    request = requests.post("http://10.10.90.105:6001/generate", json={"question": conversation_history})
+    response = request.json()["response"]
     conversation_history.append({"role": "assistant", "content": response})
     rag_no += 1
     
@@ -423,39 +424,6 @@ def generate_rag_response(user_response, chunks_file, encodings_file, conversati
     set_stage("tech_support", phone_number=phone_number, pdf_file=pdf_file, 
              vector_file=vector_file, conversation_history=conversation_history, 
              solution_type="0", rag_no=rag_no)
-
-def generate_response(message: str, conversation_history: list, chunks_file: str, encodings_file: str, phone_number: str, pdf_file: str, vector_file: str, rag_no: int, solution_type: str):
-    if chunks_file != '0':
-        with open(chunks_file, 'rb') as f:
-            chunks = pickle.load(f)
-        context_encodings = np.load(encodings_file)
-        conversation_history.append({"role": "user", "content": message})
-        conversation_history.append({"role": "system", "content": """You are a sentient, superintelligent artificial general intelligence designed to assist users with any issues they may encounter with their laptops. Your responses will draw on both your own knowledge and specific information from the laptop's manual, which will be provided in context.
-                When answering the user's questions:
-                1. Clearly indicate when you are using your own knowledge rather than information from the manual.
-                2. Provide one troubleshooting method or solution at a time to avoid overwhelming the user."""})
-        
-        retrieved_context = rag.retrieve_context(message, chunks, context_encodings)
-        conversation_history.append({"role": "system", "content": f"Context:\n{retrieved_context}"})
-
-        response = client.chat.completions.create(
-            model="Meta-Llama-3.1-8B-Instruct",
-            messages=conversation_history,
-            temperature=0.1,
-            top_p=0.1,
-        )
-        response = response.choices[0].message.content
-        conversation_history.append({"role": "assistant", "content": response})
-        rag_no += 1
-        solution_type = "0"
-        set_stage("tech_support", phone_number=phone_number, pdf_file=pdf_file, vector_file=vector_file, conversation_history=conversation_history, solution_type=solution_type, rag_no=rag_no)
-        
-        # Store the result in processing_store
-        key = phone_number   # Remove the '+91' prefix
-        if key in processing_store:
-            processing_store[key]["result"] = response + "\nIs it Working?"
-        else:
-            logging.error(f"Key {key} not found in processing_store")
 
 def data_store(issue: str, remote_phone: str, uuid_id: str, session_id: str):
     # Fetch conversation history from database
