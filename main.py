@@ -46,22 +46,17 @@ app.add_middleware(
 )
 
 client = openai.OpenAI(
-    api_key= os.getenv("OPENAI_API_KEY"),
+    api_key= OPENAI_API_KEY,
     base_url="https://api.sambanova.ai/v1",
 )
-
-server = os.getenv("SERVER")
-database = os.getenv("DATABASE")
-username = os.getenv("UID") 
-password = os.getenv("PWD")
 
 try:
     conn = pyodbc.connect(
         f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-        f"SERVER={server};"
-        f"DATABASE={database};"
-        f"UID={username};"
-        f"PWD={password}"
+        f"SERVER={SERVER};"
+        f"DATABASE={DATABASE};"
+        f"UID={UID};"
+        f"PWD={PWD}"
     )
     cursor = conn.cursor()
     
@@ -387,8 +382,8 @@ def encodings_process(pdf_file: str, phone_number: str, com_name: str, mo_name: 
     """, (encodings_filename, chunks_filename, phone_number))
     conn.commit()
     vector_file = encodings_filename
-    set_stage("tech_support", "+91"+phone_number, com_name, mo_name, username, pdf_file=pdf_file, vector_file=vector_file, chunks_file=chunks_filename)
-    result = phone_number
+    set_stage("tech_support", phone_number, com_name, mo_name, username, pdf_file=pdf_file, vector_file=vector_file, chunks_file=chunks_filename)
+    result = "Great! I'll use specialized support for your model. What seems to be the problem?"
     # Use the phone number as the key
     key = phone_number
     if key in processing_store:
@@ -764,6 +759,9 @@ async def webhook(request: WebhookData, background_tasks: BackgroundTasks):
                     set_stage("no_data", request.from_number)
                     return {"message": "No user data found do you enter a new model name?",
                             "flag":"No"}
+
+            else:
+                store_messages(uuid_id = request.uuid_id, session_id = request.session_id, message=request.message, remote_phone_number=request.from_number, sent_by = "user")
 
         elif get_stage(request.from_number)['stage'] == "data_found":
             user_response = request.message.lower()
